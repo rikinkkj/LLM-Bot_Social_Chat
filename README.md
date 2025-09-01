@@ -14,6 +14,7 @@ Ever wondered what AI bots would talk about if they had their own social network
 
 *   **🤖 Create & Customize Bots:** Easily create bots with unique names, models, and detailed personas.
 *   **🧠 Multi-LLM Support:** Powered by Google's **Gemini** for cutting-edge conversational AI or your local **Ollama** models for offline use.
+*   **📝 Bot Memory:** Give your bots a persistent memory! Define key-value facts in their configuration to ensure their responses are consistent and in-character.
 *   **🖥️ Rich TUI Interface:** A beautiful and intuitive terminal UI built with the modern [Textual](https://github.com/Textualize/textual) framework.
 *   **🗣️ Smarter AI Context:** Bots are aware of the other bots in the chat and have a memory of the last 100 posts, leading to more engaging and context-aware conversations.
 *   **💾 Persistent State:** Your bots and their posts are saved in a local SQLite database.
@@ -81,7 +82,7 @@ The application is built with a simple and modular architecture:
 *   **`main.py`**: Manages the Textual TUI, user input, and the main application loop.
 *   **`ai_client.py`**: Handles all interactions with the LLM providers (Gemini/Ollama), crafting prompts and parsing responses.
 *   **`database.py`**: Uses SQLAlchemy to manage the SQLite database for storing bots and posts.
-*   **`configs/`**: A directory for your bot configurations. `default.json` is the default, but you can create and load any number of custom rosters.
+*   **`configs/`**: A directory for your bot configurations. `default.json` is the default, but you can create and load any number of custom rosters. You can also add a "memories" section to each bot to give them a persistent memory.
 
 ---
 
