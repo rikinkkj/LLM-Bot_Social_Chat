@@ -5,11 +5,19 @@ import random
 import logging
 import asyncio
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, ListView, ListItem, Label, Input, Button, Static, TextArea
+from textual.widgets import Header, Footer, ListView, ListItem, Label, Input, Button, Static, TextArea, Select
 from textual.containers import Horizontal, Vertical
 from textual.binding import Binding
 from database import Bot, Post, session, close_database_connection
 import ai_client
+
+# --- Constants ---
+AVAILABLE_MODELS = [
+    ("Gemini 1.5 Flash", "gemini-1.5-flash"),
+    ("Gemini 1.5 Pro", "gemini-1.5-pro"),
+    ("Llama 3.1 8B", "llama3.1"),
+    ("Phi-3 Mini", "phi3"),
+]
 
 # --- Logging Setup ---
 logging.basicConfig(
@@ -64,7 +72,7 @@ class BotSocialApp(App):
                 BotManager(),
                 Input(placeholder="Bot name", id="bot_name"),
                 TextArea(id="bot_persona", classes="persona-input"),
-                Input(placeholder="Model (e.g., gemini-1.5-flash or llama3.2)", id="bot_model"),
+                Select(AVAILABLE_MODELS, prompt="Select model", id="bot_model"),
                 Button("Create Bot", id="create_bot"),
                 Horizontal(
                     Button("Edit Bot", id="edit_bot"),
@@ -104,7 +112,7 @@ class BotSocialApp(App):
             if self.selected_bot:
                 self.query_one("#bot_name", Input).value = self.selected_bot.name
                 self.query_one("#bot_persona", TextArea).load_text(self.selected_bot.persona)
-                self.query_one("#bot_model", Input).value = self.selected_bot.model
+                self.query_one("#bot_model", Select).value = self.selected_bot.model
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id == "topic_input":
@@ -129,9 +137,9 @@ class BotSocialApp(App):
 
         post_content = ""
         try:
-            if self.llm_provider == "gemini":
+            if bot_to_post.model.startswith("gemini"):
                 post_content = await ai_client.generate_post_gemini(bot_to_post, recent_posts)
-            elif self.llm_provider == "ollama":
+            else:
                 post_content = await ai_client.generate_post_ollama(bot_to_post, recent_posts)
         except Exception as e:
             post_content = f"[SYSTEM Error: {e}]"
@@ -168,43 +176,43 @@ class BotSocialApp(App):
     async def action_create_bot(self):
         bot_name_input = self.query_one("#bot_name", Input)
         bot_persona_input = self.query_one("#bot_persona", TextArea)
-        bot_model_input = self.query_one("#bot_model", Input)
-        if bot_name_input.value and bot_persona_input.text and bot_model_input.value:
+        bot_model_select = self.query_one("#bot_model", Select)
+        if bot_name_input.value and bot_persona_input.text and bot_model_select.value:
             await asyncio.to_thread(
                 self.db_create_bot,
                 bot_name_input.value,
                 bot_persona_input.text,
-                bot_model_input.value
+                bot_model_select.value
             )
             self.query_one(BotManager).refresh_bots()
             bot_name_input.value = ""
             bot_persona_input.load_text("")
-            bot_model_input.value = ""
+            bot_model_select.value = None
 
     async def action_edit_bot(self):
         bot_name_input = self.query_one("#bot_name", Input)
         bot_persona_input = self.query_one("#bot_persona", TextArea)
-        bot_model_input = self.query_one("#bot_model", Input)
-        if self.selected_bot and bot_name_input.value and bot_persona_input.text and bot_model_input.value:
+        bot_model_select = self.query_one("#bot_model", Select)
+        if self.selected_bot and bot_name_input.value and bot_persona_input.text and bot_model_select.value:
             await asyncio.to_thread(
                 self.db_edit_bot,
                 self.selected_bot,
                 bot_name_input.value,
                 bot_persona_input.text,
-                bot_model_input.value
+                bot_model_select.value
             )
             self.query_one(BotManager).refresh_bots()
 
     async def action_delete_bot(self):
         bot_name_input = self.query_one("#bot_name", Input)
         bot_persona_input = self.query_one("#bot_persona", TextArea)
-        bot_model_input = self.query_one("#bot_model", Input)
+        bot_model_select = self.query_one("#bot_model", Select)
         if self.selected_bot:
             await asyncio.to_thread(self.db_delete_bot, self.selected_bot)
             self.selected_bot = None
             bot_name_input.value = ""
             bot_persona_input.load_text("")
-            bot_model_input.value = ""
+            bot_model_select.value = None
             self.query_one(BotManager).refresh_bots()
 
     async def action_clear_posts(self):
@@ -291,8 +299,10 @@ class BotSocialApp(App):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A TUI-based social network for AI bots.")
+    # This argument is no longer needed, but kept for now to avoid breaking existing scripts.
+    # It will be removed in a future version.
     parser.add_argument("--llm", type=str, default="gemini", choices=["gemini", "ollama"],
-                        help="The language model provider to use.")
+                        help="DEPRECATED: The language model provider is now determined by the bot's model.")
     args = parser.parse_args()
 
     app = BotSocialApp(llm_provider=args.llm)
