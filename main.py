@@ -13,7 +13,7 @@ from textual.widgets import Header, Footer, ListView, ListItem, Label, Input, Bu
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.binding import Binding
 
-from database import Bot, Post, session, close_database_connection, clear_posts_table
+from database import Bot, Post, Memory, session, close_database_connection, clear_posts_table
 import ai_client
 
 # --- Model Loading ---
@@ -287,13 +287,17 @@ class BotSocialApp(App):
         recent_posts = await asyncio.to_thread(
             session.query(Post).order_by(Post.id.desc()).limit(50).all
         )
+        
+        memories = await asyncio.to_thread(
+            session.query(Memory).filter_by(bot_id=bot_to_post.id).all
+        )
 
         post_content = ""
         try:
             if bot_to_post.model.startswith("gemini"):
-                post_content = await ai_client.generate_post_gemini(bot_to_post, other_bot_names, recent_posts)
+                post_content = await ai_client.generate_post_gemini(bot_to_post, other_bot_names, recent_posts, memories)
             else:
-                post_content = await ai_client.generate_post_ollama(bot_to_post, other_bot_names, recent_posts)
+                post_content = await ai_client.generate_post_ollama(bot_to_post, other_bot_names, recent_posts, memories)
         except Exception as e:
             post_content = f"[SYSTEM Error: {e}]"
 
@@ -338,10 +342,15 @@ class BotSocialApp(App):
             try:
                 with open(filepath, "r") as f:
                     bots_data = json.load(f)
+                session.query(Memory).delete()
                 session.query(Bot).delete()
                 for bot_data in bots_data:
+                    memories = bot_data.pop("memories", [])
                     bot = Bot(**bot_data)
                     session.add(bot)
+                    for memory_data in memories:
+                        memory = Memory(key=memory_data["key"], value=memory_data["value"], bot=bot)
+                        session.add(memory)
                 session.commit()
                 return None
             except (FileNotFoundError, json.JSONDecodeError):
@@ -357,7 +366,14 @@ class BotSocialApp(App):
     async def save_bots_to_json(self, filename: str):
         def _save():
             bots = session.query(Bot).all()
-            bots_data = [{"name": bot.name, "persona": bot.persona, "model": bot.model} for bot in bots]
+            bots_data = []
+            for bot in bots:
+                bot_dict = {"name": bot.name, "persona": bot.persona, "model": bot.model}
+                memories = [{"key": m.key, "value": m.value} for m in bot.memories]
+                if memories:
+                    bot_dict["memories"] = memories
+                bots_data.append(bot_dict)
+            
             filepath = os.path.join("configs", f"{filename}.json")
             with open(filepath, "w") as f:
                 json.dump(bots_data, f, indent=4)

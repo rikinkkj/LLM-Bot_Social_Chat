@@ -8,7 +8,7 @@ import os
 import google.generativeai as genai
 from dotenv import load_dotenv
 
-from database import Bot, Post
+from database import Bot, Post, Memory
 
 # --- Load environment variables ---
 load_dotenv()
@@ -29,11 +29,11 @@ try:
 except ValueError as e:
     logging.error(e)
 
-async def generate_post_gemini(bot: Bot, other_bot_names: List[str], recent_posts: List[Post]) -> str:
+async def generate_post_gemini(bot: Bot, other_bot_names: List[str], recent_posts: List[Post], memories: List[Memory]) -> str:
     """Generates a post using the Gemini API."""
     try:
         model = genai.GenerativeModel(bot.model)
-        prompt = _build_prompt(bot, other_bot_names, recent_posts)
+        prompt = _build_prompt(bot, other_bot_names, recent_posts, memories)
         response = await model.generate_content_async(prompt)
         return response.text.strip()
     except Exception as e:
@@ -66,14 +66,14 @@ def _run_ollama_sync(model: str, prompt: str) -> str:
         logging.error(f"An unexpected error occurred with Ollama: {str(e)}")
         return f"[An unexpected error occurred with Ollama: {str(e)}]"
 
-async def generate_post_ollama(bot: Bot, other_bot_names: List[str], recent_posts: List[Post]) -> str:
+async def generate_post_ollama(bot: Bot, other_bot_names: List[str], recent_posts: List[Post], memories: List[Memory]) -> str:
     """Generates a post using a local Ollama model."""
-    prompt = _build_prompt(bot, other_bot_names, recent_posts)
+    prompt = _build_prompt(bot, other_bot_names, recent_posts, memories)
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(executor, _run_ollama_sync, bot.model, prompt)
 
 # --- Prompt Engineering ---
-def _build_prompt(bot: Bot, other_bot_names: List[str], recent_posts: List[Post]) -> str:
+def _build_prompt(bot: Bot, other_bot_names: List[str], recent_posts: List[Post], memories: List[Memory]) -> str:
     """Builds a detailed, persona-driven prompt for any AI model."""
     
     other_bots_str = ", ".join([f"@{name}" for name in other_bot_names])
@@ -83,11 +83,18 @@ def _build_prompt(bot: Bot, other_bot_names: List[str], recent_posts: List[Post]
         "Embody this persona completely. Your goal is to engage in a thoughtful and meaningful conversation.",
         "Avoid clichés and generic statements. Instead, provide responses that show deep thought, advance the conversation, and are true to your persona."
     ]
+
+    if memories:
+        memory_str = "\n".join([f"- {m.key}: {m.value}" for m in memories])
+        prompt_parts.extend([
+            "\nHere are some of your core memories and beliefs:",
+            memory_str
+        ])
+
     if other_bots_str:
-        prompt_parts.append(f"You are in a conversation with: {other_bots_str}. Be sure to engage with them directly by name.")
+        prompt_parts.append(f"\nYou are in a conversation with: {other_bots_str}. Be sure to engage with them directly by name.")
 
     if recent_posts:
-        # Truncate history to the last 100 lines for performance and context focus
         history_lines = [f"- @{p.sender}: {p.content}" for p in reversed(recent_posts)]
         chat_history = "\n".join(history_lines).splitlines()[-100:]
         chat_history_str = "\n".join(chat_history)
@@ -95,7 +102,7 @@ def _build_prompt(bot: Bot, other_bot_names: List[str], recent_posts: List[Post]
         prompt_parts.extend([
             "\nHere are the recent posts in the conversation:",
             chat_history_str,
-            "\nBased on these posts, what is your thoughtful reaction?",
+            "\nBased on these posts and your memories, what is your thoughtful reaction?",
             "Your response should be a single, short post that is engaging, asks questions, and mentions other bots by name (using '@') to foster a sense of community."
         ])
     else:
