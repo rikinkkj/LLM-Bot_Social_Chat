@@ -49,6 +49,18 @@ if /i "%1" == "--test" (
     )
 )
 
+:: --- Ollama Check ---
+echo ---
+echo INFO: Checking for Ollama installation...
+where ollama >nul 2>nul
+if %errorlevel% == 0 (
+    echo [V] Ollama is installed. You can use local models.
+) else (
+    echo [!] Ollama not found.
+    echo    To use local AI models, please install Ollama from https://ollama.com
+)
+echo ---
+
 set "VENV_DIR=%INSTALL_DIR%\venv"
 set "PROJECT_ROOT=%cd%"
 

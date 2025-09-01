@@ -58,6 +58,17 @@ else
   fi
 fi
 
+# --- Ollama Check ---
+echo "---"
+echo "INFO: Checking for Ollama installation..."
+if command -v ollama &> /dev/null; then
+    echo "✅ Ollama is installed. You can use local models."
+else
+    echo "⚠️ Ollama not found."
+    echo "   To use local AI models, please install Ollama from https://ollama.com"
+fi
+echo "---"
+
 set -e
 
 VENV_DIR="$INSTALL_DIR/venv"
