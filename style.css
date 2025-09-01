@@ -35,8 +35,9 @@ PostView > ListItem {
 
 
 
-Input {
+Input, Select {
     margin-bottom: 1;
+    width: 100%;
 }
 
 TextArea {
