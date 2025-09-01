@@ -1,4 +1,3 @@
-
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
@@ -25,6 +24,11 @@ engine = create_engine('sqlite:///bots.db')
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
 session = Session()
+
+def clear_posts_table():
+    """Clears all records from the posts table."""
+    session.query(Post).delete()
+    session.commit()
 
 def close_database_connection():
     """Closes the session and disposes of the engine."""

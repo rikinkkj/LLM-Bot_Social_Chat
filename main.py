@@ -1,4 +1,3 @@
-
 import json
 import argparse
 import random
@@ -14,7 +13,7 @@ from textual.widgets import Header, Footer, ListView, ListItem, Label, Input, Bu
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.binding import Binding
 
-from database import Bot, Post, session, close_database_connection
+from database import Bot, Post, session, close_database_connection, clear_posts_table
 import ai_client
 
 # --- Model Loading ---
@@ -25,8 +24,6 @@ def get_available_models() -> List[Tuple[str, str]]:
     gemini_models = [
         ("Gemini 1.5 Flash", "gemini-1.5-flash"),
         ("Gemini 1.5 Pro", "gemini-1.5-pro"),
-        ("Gemini 2.5 Flash", "gemini-2.5-flash"),
-        ("Gemini 2.5 Pro", "gemini-2.5-pro"),
     ]
 
     ollama_models = []
@@ -46,7 +43,7 @@ def get_available_models() -> List[Tuple[str, str]]:
 
 # --- Logging Setup ---
 logging.basicConfig(
-    level="INFO",
+    level="DEBUG",
     filename="bots.log",
     filemode="w",
     format="%(asctime)s - %(levelname)s - %(message)s"
@@ -109,11 +106,7 @@ class BotEditScreen(ModalScreen[dict]):
 
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="dialog"):
-            if self.bot_to_edit:
-                yield Label("Edit Bot")
-            else:
-                yield Label("Create New Bot")
-            
+            yield Label("Edit Bot" if self.bot_to_edit else "Create New Bot")
             yield Input(
                 value=self.bot_to_edit.name if self.bot_to_edit else "",
                 placeholder="Name",
@@ -145,46 +138,57 @@ class BotEditScreen(ModalScreen[dict]):
             if all(bot_data.values()):
                 self.dismiss(bot_data)
 
+# --- Widgets ---
+
 class BotManager(ListView):
+    """Widget to display and manage the list of bots."""
     def on_mount(self) -> None:
         self.border_title = "Bots"
         self.app.run_task(self.refresh_bots())
 
     async def refresh_bots(self):
-        def _get_bots():
+        def _get_bots() -> List[Bot]:
             return session.query(Bot).all()
         bots = await asyncio.to_thread(_get_bots)
+        self.app.bot_names = [bot.name for bot in bots]
         self.clear()
         for bot in bots:
             self.append(ListItem(Label(bot.name)))
 
 class PostView(ListView):
+    """Widget to display the chat history."""
     def on_mount(self) -> None:
         self.border_title = "Posts"
         self.app.run_task(self.refresh_posts())
 
     def add_post(self, post: Post):
-        sender = post.sender if post.sender else post.bot.name
+        sender = post.sender or (post.bot.name if post.bot else "Unknown")
         self.mount(ListItem(Static(f"{sender}: {post.content}")), before=0)
+        self.scroll_home(animate=False)
 
     async def refresh_posts(self):
-        def _get_posts():
+        def _get_posts() -> List[Post]:
             return session.query(Post).order_by(Post.id.desc()).all()
         posts = await asyncio.to_thread(_get_posts)
         self.clear()
-        for post in posts:
-            sender = post.sender if post.sender else post.bot.name
-            self.append(ListItem(Static(f"{sender}: {post.content}")))
+        for post in reversed(posts): # Display in chronological order
+            self.add_post(post)
+
+# --- Main App ---
 
 class BotSocialApp(App):
     CSS_PATH = "style.css"
     BINDINGS = [Binding("q", "quit", "Quit")]
 
-    def __init__(self):
+    def __init__(self, autostart: bool = False, clear_db: bool = False):
         super().__init__()
+        self.autostart = autostart
+        if clear_db:
+            clear_posts_table()
         self.background_tasks = set()
         self.selected_bot: Optional[Bot] = None
         self.available_models = get_available_models()
+        self.bot_names: List[str] = []
         logging.info("Application started.")
 
     def compose(self) -> ComposeResult:
@@ -192,40 +196,34 @@ class BotSocialApp(App):
         yield Horizontal(
             Vertical(
                 BotManager(),
-                Horizontal(
-                    Button("Create Bot", id="create_bot"),
-                    Button("Edit Bot", id="edit_bot"),
-                ),
+                Horizontal(Button("Create Bot", id="create_bot"), Button("Edit Bot", id="edit_bot")),
                 Button("Delete Bot", id="delete_bot"),
-                Horizontal(
-                    Button("Load Config", id="load_bots"),
-                    Button("Save Config", id="save_bots"),
-                ),
+                Horizontal(Button("Load Config", id="load_bots"), Button("Save Config", id="save_bots")),
                 id="left-pane"
             ),
             Vertical(
                 PostView(),
-                Horizontal(
-                    Button("Start", id="start_chat"),
-                    Button("Stop", id="stop_chat"),
-                    Button("Clear", id="clear_chat"),
-                ),
-                Horizontal(
-                    Input(placeholder="Topic", id="topic_input"),
-                    Button("Inject Topic", id="inject_topic"),
-                ),
+                Horizontal(Button("Start", id="start_chat"), Button("Stop", id="stop_chat"), Button("Clear", id="clear_chat")),
+                Horizontal(Input(placeholder="Topic", id="topic_input"), Button("Inject Topic", id="inject_topic")),
                 id="right-pane"
             )
         )
         yield Footer()
 
     def on_mount(self) -> None:
-        self.bot_timer = self.set_interval(8, self.run_bot_activity, pause=True)
+        self.bot_timer = self.set_interval(8, self.run_bot_activity, pause=not self.autostart)
+
+    def run_task(self, coro):
+        task = asyncio.create_task(coro)
+        self.background_tasks.add(task)
+        task.add_done_callback(self.background_tasks.discard)
+
+    # --- Event Handlers ---
 
     def on_list_view_selected(self, event: ListView.Selected):
         if isinstance(event.list_view, BotManager):
             bot_name = event.item.children[0].renderable
-            self.run_task(self.select_bot_by_name(bot_name))
+            self.run_task(self.select_bot_by_name(str(bot_name)))
     
     async def select_bot_by_name(self, name: str):
         def _get_bot():
@@ -237,36 +235,9 @@ class BotSocialApp(App):
             await self.action_inject_topic(event.value)
             event.input.value = ""
 
-    def run_task(self, coro):
-        task = asyncio.create_task(coro)
-        self.background_tasks.add(task)
-        task.add_done_callback(self.background_tasks.discard)
-
-    async def run_bot_activity(self):
-        bots = await asyncio.to_thread(session.query(Bot).all)
-        if not bots:
-            return
-
-        bot_to_post = random.choice(bots)
-        recent_posts = await asyncio.to_thread(
-            session.query(Post).order_by(Post.id.desc()).limit(5).all
-        )
-
-        post_content = ""
-        try:
-            if bot_to_post.model.startswith("gemini"):
-                post_content = await ai_client.generate_post_gemini(bot_to_post, recent_posts)
-            else:
-                post_content = await ai_client.generate_post_ollama(bot_to_post, recent_posts)
-        except Exception as e:
-            post_content = f"[SYSTEM Error: {e}]"
-
-        sender_name = "SYSTEM" if post_content.startswith(("[Error", "[SYSTEM")) else bot_to_post.name
-        new_post = await asyncio.to_thread(self.create_post, post_content, sender_name, bot_to_post)
-        self.query_one(PostView).add_post(new_post)
-
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "create_bot":
+            self.selected_bot = None
             self.push_screen(BotEditScreen(available_models=self.available_models), self.handle_bot_edit_result)
         elif event.button.id == "edit_bot":
             if self.selected_bot:
@@ -290,12 +261,12 @@ class BotSocialApp(App):
                 self.run_task(self.action_inject_topic(topic_input.value))
                 topic_input.value = ""
 
+    # --- Action & Callback Methods ---
+
     def handle_bot_edit_result(self, bot_data: Optional[dict]):
         if bot_data:
-            if self.selected_bot:
-                self.run_task(self.action_edit_bot(bot_data))
-            else:
-                self.run_task(self.action_create_bot(bot_data))
+            task = self.action_edit_bot(bot_data) if self.selected_bot else self.action_create_bot(bot_data)
+            self.run_task(task)
 
     def handle_save_config(self, filename: Optional[str]):
         if filename:
@@ -304,6 +275,33 @@ class BotSocialApp(App):
     def handle_load_config(self, filename: Optional[str]):
         if filename:
             self.run_task(self.load_bots_from_json(filename))
+
+    async def run_bot_activity(self):
+        bots = await asyncio.to_thread(session.query(Bot).all)
+        if not bots:
+            return
+
+        bot_to_post = random.choice(bots)
+        other_bot_names = [b.name for b in bots if b.name != bot_to_post.name]
+        
+        recent_posts = await asyncio.to_thread(
+            session.query(Post).order_by(Post.id.desc()).limit(50).all
+        )
+
+        post_content = ""
+        try:
+            if bot_to_post.model.startswith("gemini"):
+                post_content = await ai_client.generate_post_gemini(bot_to_post, other_bot_names, recent_posts)
+            else:
+                post_content = await ai_client.generate_post_ollama(bot_to_post, other_bot_names, recent_posts)
+        except Exception as e:
+            post_content = f"[SYSTEM Error: {e}]"
+
+        sender_name = "SYSTEM" if post_content.startswith(("[Error", "[SYSTEM")) else bot_to_post.name
+        new_post = await asyncio.to_thread(self.create_post, post_content, sender_name, bot_to_post)
+        self.query_one(PostView).add_post(new_post)
+
+    # --- Core Actions ---
 
     async def action_create_bot(self, bot_data: dict):
         await asyncio.to_thread(self.db_create_bot, **bot_data)
@@ -327,6 +325,7 @@ class BotSocialApp(App):
         self.query_one(PostView).add_post(new_post)
 
     # --- Config File Methods ---
+
     def get_config_files(self) -> List[str]:
         config_dir = "configs"
         if not os.path.exists(config_dir):
@@ -341,7 +340,7 @@ class BotSocialApp(App):
                     bots_data = json.load(f)
                 session.query(Bot).delete()
                 for bot_data in bots_data:
-                    bot = Bot(name=bot_data["name"], persona=bot_data["persona"], model=bot_data.get("model", "gemini-1.5-flash"))
+                    bot = Bot(**bot_data)
                     session.add(bot)
                 session.commit()
                 return None
@@ -353,6 +352,7 @@ class BotSocialApp(App):
             error_post = await asyncio.to_thread(self.create_post, f"Error loading {filename}.", "SYSTEM")
             self.query_one(PostView).add_post(error_post)
         await self.query_one(BotManager).refresh_bots()
+        await self.query_one(PostView).refresh_posts()
 
     async def save_bots_to_json(self, filename: str):
         def _save():
@@ -364,6 +364,7 @@ class BotSocialApp(App):
         await asyncio.to_thread(_save)
 
     # --- Database Helper Methods ---
+
     def create_post(self, content, sender, bot=None):
         new_post = Post(content=content, sender=sender, bot=bot)
         session.add(new_post)
@@ -407,9 +408,9 @@ class BotSocialApp(App):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A TUI-based social network for AI bots.")
-    parser.add_argument("--llm", type=str, default="gemini", choices=["gemini", "ollama"],
-                        help="DEPRECATED: This argument is no longer used.")
+    parser.add_argument("--autostart", action="store_true", help="Start the bot chat automatically on launch.")
+    parser.add_argument("--clear-db", action="store_true", help="Clear the posts database on launch.")
     args = parser.parse_args()
 
-    app = BotSocialApp()
+    app = BotSocialApp(autostart=args.autostart, clear_db=args.clear_db)
     app.run()
