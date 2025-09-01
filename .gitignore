@@ -7,3 +7,6 @@ __pycache__/
 
 # Logs
 *.log
+
+# Environment
+.env

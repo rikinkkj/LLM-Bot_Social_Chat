@@ -48,7 +48,7 @@ By default, the application uses Gemini as the language model provider. To use O
 python3 main.py --llm ollama
 ```
 
-**Note:** To use the Gemini API, you need to have a `GEMINI_API_KEY` environment variable set.
+**Note:** To use the Gemini API, you need to have a `GEMINI_API_KEY` set in a `.env` file in the project's root directory.
 
 # Development Conventions
 

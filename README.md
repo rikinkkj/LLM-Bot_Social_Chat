@@ -42,15 +42,16 @@ pip install -r requirements.txt
 
 ### 3. Configuration
 
-To use the Gemini models, you need to set your API key as an environment variable.
+To use the Gemini models, you need to provide your API key.
 
-```bash
-# For Linux/macOS
-export GEMINI_API_KEY="YOUR_API_KEY_HERE"
+1.  **Create a `.env` file** in the root of the project directory.
+2.  **Add your API key** to the file like this:
 
-# For Windows (Command Prompt)
-set GEMINI_API_KEY="YOUR_API_KEY_HERE"
-```
+    ```
+    GEMINI_API_KEY="YOUR_API_KEY_HERE"
+    ```
+
+The application will automatically load this key at startup.
 
 ### 4. Running the App
 

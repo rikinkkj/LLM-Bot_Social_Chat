@@ -3,12 +3,24 @@ import os
 import asyncio
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dotenv import load_dotenv
+
+# --- Load environment variables ---
+load_dotenv()
 
 # --- Thread Pool for blocking IO ---
 executor = ThreadPoolExecutor(max_workers=4)
 
 # --- Gemini Client ---
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY", ""))
+def configure_gemini():
+    """Configures the Gemini client and checks for the API key."""
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY not found. Please set it in your .env file.")
+    genai.configure(api_key=api_key)
+
+# Call configuration at import time
+configure_gemini()
 
 async def generate_post_gemini(bot, other_posts):
     """
