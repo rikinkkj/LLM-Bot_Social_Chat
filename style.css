@@ -4,12 +4,13 @@ Screen {
 
 Horizontal {
     layout: horizontal;
-    height: 1fr;
+    height: auto;
 }
 
 #left-pane {
     width: 30%;
     padding: 1;
+    border-right: solid $accent;
 }
 
 #right-pane {
@@ -33,8 +34,6 @@ PostView > ListItem {
     height: auto;
 }
 
-
-
 Input, Select {
     margin-bottom: 1;
     width: 100%;
@@ -45,6 +44,32 @@ TextArea {
     margin-bottom: 1;
 }
 
-#right-pane > Horizontal {
-    height: auto;
+/* --- Modal Dialog --- */
+
+BotEditScreen {
+    align: center middle;
+}
+
+#dialog {
+    width: 60;
+    height: 18;
+    background: $surface;
+    padding: 1;
+    border: thick $primary;
+}
+
+#dialog > Label {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 1;
+}
+
+#buttons {
+    width: 100%;
+    align-horizontal: right;
+    margin-top: 1;
+}
+
+#buttons > Button {
+    margin-left: 1;
 }
