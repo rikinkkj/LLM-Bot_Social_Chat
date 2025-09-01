@@ -106,11 +106,11 @@ class BotSocialApp(App):
                 self.query_one("#bot_persona", TextArea).load_text(self.selected_bot.persona)
                 self.query_one("#bot_model", Input).value = self.selected_bot.model
 
-    def on_input_submitted(self, event: Input.Submitted) -> None:
+    async def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id == "topic_input":
             topic = event.value
             if topic:
-                self.run_task(self.action_inject_topic(topic))
+                await self.action_inject_topic(topic)
                 event.input.value = ""
 
     def run_task(self, coro):
