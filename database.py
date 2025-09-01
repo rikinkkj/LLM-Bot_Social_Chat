@@ -25,3 +25,8 @@ engine = create_engine('sqlite:///bots.db')
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
 session = Session()
+
+def close_database_connection():
+    """Closes the session and disposes of the engine."""
+    session.close()
+    engine.dispose()

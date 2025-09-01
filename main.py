@@ -3,11 +3,12 @@ import json
 import argparse
 import random
 import logging
+import asyncio
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, ListView, ListItem, Label, Input, Button, Static, TextArea
 from textual.containers import Horizontal, Vertical
 from textual.binding import Binding
-from database import Bot, Post, session
+from database import Bot, Post, session, close_database_connection
 import ai_client
 
 # --- Logging Setup ---
@@ -52,6 +53,7 @@ class BotSocialApp(App):
     def __init__(self, llm_provider="gemini"):
         super().__init__()
         self.llm_provider = llm_provider
+        self.background_tasks = set()
         logging.info(f"Application started with LLM provider: {self.llm_provider}")
 
 
@@ -108,19 +110,22 @@ class BotSocialApp(App):
         if event.input.id == "topic_input":
             topic = event.value
             if topic:
-                new_post = Post(content=f"Let's talk about: {topic}", sender="USER")
-                session.add(new_post)
-                session.commit()
-                self.query_one(PostView).add_post(new_post)
+                self.run_task(self.action_inject_topic(topic))
                 event.input.value = ""
 
+    def run_task(self, coro):
+        """Helper to run a task in the background and keep track of it."""
+        task = asyncio.create_task(coro)
+        self.background_tasks.add(task)
+        task.add_done_callback(self.background_tasks.discard)
+
     async def run_bot_activity(self):
-        bots = session.query(Bot).all()
+        bots = await asyncio.to_thread(session.query(Bot).all)
         if not bots:
             return
 
         bot_to_post = random.choice(bots)
-        recent_posts = session.query(Post).order_by(Post.id.desc()).limit(5).all()
+        recent_posts = await asyncio.to_thread(session.query(Post).order_by(Post.id.desc()).limit(5).all)
 
         post_content = ""
         try:
@@ -129,37 +134,36 @@ class BotSocialApp(App):
             elif self.llm_provider == "ollama":
                 post_content = await ai_client.generate_post_ollama(bot_to_post, recent_posts)
         except Exception as e:
-            # Catch exceptions from the AI client (e.g., API key error)
             post_content = f"[SYSTEM Error: {e}]"
 
-        # If the AI returns an error message, post it as the system
-        sender_name = "SYSTEM" if post_content.startswith("[Error") else bot_to_post.name
+        sender_name = "SYSTEM" if post_content.startswith(("[Error", "[SYSTEM")) else bot_to_post.name
         
-        new_post = Post(content=post_content, bot=bot_to_post, sender=sender_name)
-        session.add(new_post)
-        session.commit()
+        new_post = await asyncio.to_thread(self.create_post, post_content, sender_name, bot_to_post)
         self.query_one(PostView).add_post(new_post)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handles button press events."""
         if event.button.id == "create_bot":
-            asyncio.create_task(self.action_create_bot())
+            self.run_task(self.action_create_bot())
         elif event.button.id == "edit_bot":
-            asyncio.create_task(self.action_edit_bot())
+            self.run_task(self.action_edit_bot())
         elif event.button.id == "delete_bot":
-            asyncio.create_task(self.action_delete_bot())
+            self.run_task(self.action_delete_bot())
         elif event.button.id == "load_bots":
-            asyncio.create_task(self.load_bots_from_json())
+            self.run_task(self.load_bots_from_json())
         elif event.button.id == "save_bots":
-            asyncio.create_task(self.save_bots_to_json())
+            self.run_task(self.save_bots_to_json())
         elif event.button.id == "start_chat":
             self.bot_timer.resume()
         elif event.button.id == "stop_chat":
             self.bot_timer.pause()
         elif event.button.id == "clear_chat":
-            asyncio.create_task(self.action_clear_posts())
+            self.run_task(self.action_clear_posts())
         elif event.button.id == "inject_topic":
-            asyncio.create_task(self.action_inject_topic())
+            topic_input = self.query_one("#topic_input", Input)
+            if topic_input.value:
+                self.run_task(self.action_inject_topic(topic_input.value))
+                topic_input.value = ""
 
     async def action_create_bot(self):
         bot_name_input = self.query_one("#bot_name", Input)
@@ -207,14 +211,18 @@ class BotSocialApp(App):
         await asyncio.to_thread(self.db_clear_posts)
         self.query_one(PostView).refresh_posts()
 
-    async def action_inject_topic(self):
-        topic_input = self.query_one("#topic_input", Input)
-        if topic_input.value:
-            new_post = await asyncio.to_thread(self.create_post, topic_input.value, "USER")
-            self.query_one(PostView).add_post(new_post)
-            topic_input.value = ""
+    async def action_inject_topic(self, topic: str):
+        new_post = await asyncio.to_thread(self.create_post, topic, "USER")
+        self.query_one(PostView).add_post(new_post)
 
     # --- Database Helper Methods ---
+    def create_post(self, content, sender, bot=None):
+        """Synchronous helper to create a post and commit it."""
+        new_post = Post(content=content, sender=sender, bot=bot)
+        session.add(new_post)
+        session.commit()
+        return new_post
+        
     def db_create_bot(self, name, persona, model):
         new_bot = Bot(name=name, persona=persona, model=model)
         session.add(new_bot)
@@ -264,10 +272,21 @@ class BotSocialApp(App):
                 json.dump(bots_data, f, indent=4)
         await asyncio.to_thread(_save)
 
-    def action_quit(self) -> None:
+    async def action_quit(self) -> None:
         """Gracefully shut down the application."""
+        self.log("Stopping bot timer...")
         self.bot_timer.stop()
-        self.log("Bot timer stopped. Exiting application.")
+        
+        self.log(f"Cancelling {len(self.background_tasks)} background tasks...")
+        for task in self.background_tasks:
+            task.cancel()
+        
+        await asyncio.gather(*self.background_tasks, return_exceptions=True)
+        
+        self.log("Closing database connection...")
+        await asyncio.to_thread(close_database_connection)
+        
+        self.log("Exiting application.")
         self.exit()
 
 if __name__ == "__main__":
