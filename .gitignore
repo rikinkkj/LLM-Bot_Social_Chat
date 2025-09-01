@@ -10,3 +10,6 @@ __pycache__/
 
 # Environment
 .env
+
+# Bot Configurations
+/configs/

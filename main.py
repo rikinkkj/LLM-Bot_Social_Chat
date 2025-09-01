@@ -5,6 +5,7 @@ import random
 import logging
 import asyncio
 import subprocess
+import os
 from typing import Optional, List, Tuple
 
 from textual.app import App, ComposeResult
@@ -21,7 +22,6 @@ import ai_client
 def get_available_models() -> List[Tuple[str, str]]:
     """Gets a list of available models from Gemini and Ollama."""
     
-    # Static list of Gemini models
     gemini_models = [
         ("Gemini 1.5 Flash", "gemini-1.5-flash"),
         ("Gemini 1.5 Pro", "gemini-1.5-pro"),
@@ -29,7 +29,6 @@ def get_available_models() -> List[Tuple[str, str]]:
         ("Gemini 2.5 Pro", "gemini-2.5-pro"),
     ]
 
-    # Dynamically get Ollama models
     ollama_models = []
     try:
         result = subprocess.run(["ollama", "list"], capture_output=True, text=True, check=True)
@@ -38,15 +37,12 @@ def get_available_models() -> List[Tuple[str, str]]:
             for line in lines[1:]:
                 parts = line.split()
                 if parts:
-                    # Strip the tag (e.g., ':latest') from the model name
                     model_name = parts[0].split(':')[0]
                     ollama_models.append((model_name, model_name))
     except (FileNotFoundError, subprocess.CalledProcessError) as e:
         logging.warning(f"Could not list Ollama models: {e}")
 
     return gemini_models + ollama_models
-
-AVAILABLE_MODELS = get_available_models()
 
 # --- Logging Setup ---
 logging.basicConfig(
@@ -57,6 +53,51 @@ logging.basicConfig(
 )
 
 # --- Screens ---
+
+class SaveConfigScreen(ModalScreen[str]):
+    """A modal screen for saving a bot configuration."""
+
+    def compose(self) -> ComposeResult:
+        with VerticalScroll(id="dialog"):
+            yield Label("Save Bot Configuration")
+            yield Input(placeholder="Filename (e.g., my_team)", id="config_name")
+            with Horizontal(id="buttons"):
+                yield Button("Save", variant="primary", id="save")
+                yield Button("Cancel", id="cancel")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "cancel":
+            self.dismiss()
+        elif event.button.id == "save":
+            filename = self.query_one("#config_name", Input).value
+            if filename:
+                self.dismiss(filename)
+
+class LoadConfigScreen(ModalScreen[str]):
+    """A modal screen for loading a bot configuration."""
+
+    def __init__(self, config_files: List[str]):
+        super().__init__()
+        self.config_files = config_files
+
+    def compose(self) -> ComposeResult:
+        with VerticalScroll(id="dialog"):
+            yield Label("Load Bot Configuration")
+            if self.config_files:
+                yield Select([(f, f) for f in self.config_files], prompt="Select a file", id="config_select")
+            else:
+                yield Label("No configuration files found in 'configs/' directory.")
+            with Horizontal(id="buttons"):
+                yield Button("Load", variant="primary", id="load")
+                yield Button("Cancel", id="cancel")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "cancel":
+            self.dismiss()
+        elif event.button.id == "load":
+            select = self.query_one(Select)
+            if select.value:
+                self.dismiss(select.value)
 
 class BotEditScreen(ModalScreen[dict]):
     """A modal screen for creating or editing a bot."""
@@ -157,8 +198,8 @@ class BotSocialApp(App):
                 ),
                 Button("Delete Bot", id="delete_bot"),
                 Horizontal(
-                    Button("Load Bots", id="load_bots"),
-                    Button("Save Bots", id="save_bots"),
+                    Button("Load Config", id="load_bots"),
+                    Button("Save Config", id="save_bots"),
                 ),
                 id="left-pane"
             ),
@@ -234,9 +275,9 @@ class BotSocialApp(App):
             if self.selected_bot:
                 self.run_task(self.action_delete_bot())
         elif event.button.id == "load_bots":
-            self.run_task(self.load_bots_from_json())
+            self.push_screen(LoadConfigScreen(config_files=self.get_config_files()), self.handle_load_config)
         elif event.button.id == "save_bots":
-            self.run_task(self.save_bots_to_json())
+            self.push_screen(SaveConfigScreen(), self.handle_save_config)
         elif event.button.id == "start_chat":
             self.bot_timer.resume()
         elif event.button.id == "stop_chat":
@@ -251,10 +292,18 @@ class BotSocialApp(App):
 
     def handle_bot_edit_result(self, bot_data: Optional[dict]):
         if bot_data:
-            if self.selected_bot: # It's an edit
+            if self.selected_bot:
                 self.run_task(self.action_edit_bot(bot_data))
-            else: # It's a create
+            else:
                 self.run_task(self.action_create_bot(bot_data))
+
+    def handle_save_config(self, filename: Optional[str]):
+        if filename:
+            self.run_task(self.save_bots_to_json(filename))
+
+    def handle_load_config(self, filename: Optional[str]):
+        if filename:
+            self.run_task(self.load_bots_from_json(filename))
 
     async def action_create_bot(self, bot_data: dict):
         await asyncio.to_thread(self.db_create_bot, **bot_data)
@@ -276,6 +325,43 @@ class BotSocialApp(App):
     async def action_inject_topic(self, topic: str):
         new_post = await asyncio.to_thread(self.create_post, topic, "USER")
         self.query_one(PostView).add_post(new_post)
+
+    # --- Config File Methods ---
+    def get_config_files(self) -> List[str]:
+        config_dir = "configs"
+        if not os.path.exists(config_dir):
+            return []
+        return [f for f in os.listdir(config_dir) if f.endswith(".json")]
+
+    async def load_bots_from_json(self, filename: str):
+        def _load():
+            filepath = os.path.join("configs", filename)
+            try:
+                with open(filepath, "r") as f:
+                    bots_data = json.load(f)
+                session.query(Bot).delete()
+                for bot_data in bots_data:
+                    bot = Bot(name=bot_data["name"], persona=bot_data["persona"], model=bot_data.get("model", "gemini-1.5-flash"))
+                    session.add(bot)
+                session.commit()
+                return None
+            except (FileNotFoundError, json.JSONDecodeError):
+                return "Error"
+        
+        error = await asyncio.to_thread(_load)
+        if error:
+            error_post = await asyncio.to_thread(self.create_post, f"Error loading {filename}.", "SYSTEM")
+            self.query_one(PostView).add_post(error_post)
+        await self.query_one(BotManager).refresh_bots()
+
+    async def save_bots_to_json(self, filename: str):
+        def _save():
+            bots = session.query(Bot).all()
+            bots_data = [{"name": bot.name, "persona": bot.persona, "model": bot.model} for bot in bots]
+            filepath = os.path.join("configs", f"{filename}.json")
+            with open(filepath, "w") as f:
+                json.dump(bots_data, f, indent=4)
+        await asyncio.to_thread(_save)
 
     # --- Database Helper Methods ---
     def create_post(self, content, sender, bot=None):
@@ -302,36 +388,6 @@ class BotSocialApp(App):
     def db_clear_posts(self):
         session.query(Post).delete()
         session.commit()
-
-    async def load_bots_from_json(self):
-        def _load():
-            try:
-                with open("bots.json", "r") as f:
-                    bots_data = json.load(f)
-                session.query(Bot).delete()
-                for bot_data in bots_data:
-                    bot = Bot(name=bot_data["name"], persona=bot_data["persona"], model=bot_data.get("model", "gemini-1.5-flash"))
-                    session.add(bot)
-                session.commit()
-                return None
-            except FileNotFoundError:
-                return "FileNotFound"
-            except json.JSONDecodeError:
-                return "JSONDecodeError"
-        
-        error = await asyncio.to_thread(_load)
-        if error == "JSONDecodeError":
-            error_post = await asyncio.to_thread(self.create_post, "Error: bots.json is malformed or corrupted.", "SYSTEM")
-            self.query_one(PostView).add_post(error_post)
-        await self.query_one(BotManager).refresh_bots()
-
-    async def save_bots_to_json(self):
-        def _save():
-            bots = session.query(Bot).all()
-            bots_data = [{"name": bot.name, "persona": bot.persona, "model": bot.model} for bot in bots]
-            with open("bots.json", "w") as f:
-                json.dump(bots_data, f, indent=4)
-        await asyncio.to_thread(_save)
 
     async def action_quit(self) -> None:
         self.log("Stopping bot timer...")
