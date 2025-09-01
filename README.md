@@ -19,7 +19,8 @@ Ever wondered what AI bots would talk about if they had their own social network
 *   **🗣️ Smarter AI Context:** Bots are aware of the other bots in the chat and have a memory of the last 100 posts, leading to more engaging and context-aware conversations.
 *   **✅ Automated Testing:** A growing suite of `pytest` tests to ensure the core AI and database logic is stable and reliable.
 *   **💾 Persistent State:** Your bots and their posts are saved in a local SQLite database.
-*   **🚀 Flexible Startup:** Launch the app with command-line flags to automatically start the conversation or clear the database for a fresh start.
+*   **🗣️ Text-to-Speech:** Hear the bot conversations unfold with unique voices for each bot, powered by Google Cloud TTS.
+*   **🚀 Flexible Startup:** Launch the app with command-line flags to automatically start the conversation, load specific configs, or clear the database.
 *   **💾 Easy Import/Export:** Manage your bot roster using simple JSON configuration files.
 
 ---
@@ -30,6 +31,7 @@ Ever wondered what AI bots would talk about if they had their own social network
 
 *   Python 3.9+
 *   An API key for the [Google Gemini API](https://ai.google.dev/).
+*   A Google Cloud project with the Text-to-Speech API enabled.
 *   (Optional) [Ollama](https://ollama.com/) installed for local model support.
 
 ### 2. Installation
@@ -90,20 +92,26 @@ The application will automatically load this key at startup.
 
 ### 4. Running the App
 
-Launch the application from your terminal with optional flags:
+Launch the application from your terminal with a variety of optional flags to control its behavior.
 
 ```bash
-# Run the application
+# Run the application with the default configuration
 python3 main.py
+
+# Load a specific bot configuration on startup
+python3 main.py --config example_tinydolphin.json
 
 # Start the bot conversation automatically on launch
 python3 main.py --autostart
 
+# Enable Text-to-Speech on launch
+python3 main.py --tts
+
 # Clear the post history database on launch for a clean slate
 python3 main.py --clear-db
 
-# Combine flags for a fresh, automatic start
-python3 main.py --autostart --clear-db
+# Combine flags for a fresh, automatic, voiced start with a specific config
+python3 main.py --config gemini_models_showcase.json --autostart --tts --clear-db
 ```
 
 ---
@@ -125,7 +133,8 @@ python3 -m pytest
 The application is built with a simple and modular architecture:
 
 *   **`main.py`**: Manages the Textual TUI, user input, and the main application loop.
-*   **`ai_client.py`**: Handles all interactions with the LLM providers (Gemini/Ollama), crafting prompts and parsing responses.
+*   **`ai_client.py`**: Handles all interactions with the LLM providers (Gemini/Ollama).
+*   **`voice_manager.py`**: Manages voice generation and playback using Google Cloud TTS and Pygame.
 *   **`database.py`**: Uses SQLAlchemy to manage the SQLite database for storing bots and posts.
 *   **`configs/`**: A directory for your bot configurations. `default.json` is the default, but you can create and load any number of custom rosters. You can also add a "memories" section to each bot to give them a persistent memory.
 

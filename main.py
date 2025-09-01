@@ -15,6 +15,7 @@ from textual.binding import Binding
 
 from database import Bot, Post, Memory, session, close_database_connection, clear_posts_table
 import ai_client
+import voice_manager
 
 # --- Helper Functions ---
 
@@ -202,9 +203,12 @@ class BotSocialApp(App):
     CSS_PATH = "style.css"
     BINDINGS = [Binding("q", "quit", "Quit")]
 
-    def __init__(self, autostart: bool = False, clear_db: bool = False):
+    def __init__(self, config_file: str = "default.json", autostart: bool = False, clear_db: bool = False, autostart_tts: bool = False):
         super().__init__()
+        self.config_file = config_file
         self.autostart = autostart
+        self.tts_enabled = autostart_tts
+        self.tts_queue = asyncio.Queue(maxsize=1)
         if clear_db:
             clear_posts_table()
         self.background_tasks = set()
@@ -227,14 +231,21 @@ class BotSocialApp(App):
                 PostView(),
                 Horizontal(Button("Start", id="start_chat"), Button("Stop", id="stop_chat"), Button("Clear", id="clear_chat")),
                 Horizontal(Input(placeholder="Topic", id="topic_input"), Button("Inject Topic", id="inject_topic")),
+                Button("TTS: ON" if self.tts_enabled else "TTS: OFF", id="toggle_tts"),
                 id="right-pane"
             )
         )
         yield Footer()
 
     def on_mount(self) -> None:
-        self.run_task(self.load_bots_from_json("default.json"))
-        self.bot_timer = self.set_interval(8, self.run_bot_activity, pause=not self.autostart)
+        self.run_task(self.initialize_voices())
+        self.run_task(self.load_bots_from_json(self.config_file))
+        self.run_task(self.speaker_worker())
+        self.bot_timer = self.set_interval(15, self.run_bot_activity, pause=not self.autostart)
+
+    async def initialize_voices(self):
+        """Initializes the voice cache."""
+        await asyncio.to_thread(voice_manager.get_voices)
 
     def run_task(self, coro):
         task = asyncio.create_task(coro)
@@ -283,6 +294,9 @@ class BotSocialApp(App):
             if topic_input.value:
                 self.run_task(self.action_inject_topic(topic_input.value))
                 topic_input.value = ""
+        elif event.button.id == "toggle_tts":
+            self.tts_enabled = not self.tts_enabled
+            event.button.label = f"TTS: {'ON' if self.tts_enabled else 'OFF'}"
 
     # --- Action & Callback Methods ---
 
@@ -326,10 +340,34 @@ class BotSocialApp(App):
 
         sender_name = "SYSTEM" if post_content.startswith(("[Error", "[SYSTEM")) else bot_to_post.name
         new_post = await asyncio.to_thread(self.create_post, post_content, sender_name, bot_to_post)
-        self.query_one(PostView).add_post(new_post)
+
+        if self.tts_enabled and not post_content.startswith("[SYSTEM"):
+            voice_name = voice_manager.select_voice(bot_to_post.name)
+            if voice_name:
+                audio_data = await voice_manager.generate_voice_data(post_content, voice_name)
+                if audio_data:
+                    await self.tts_queue.put({"audio": audio_data, "post": new_post})
+        else:
+            self.query_one(PostView).add_post(new_post)
         
         # After posting, try to form a new memory
         self.run_task(self.form_new_memory(bot_to_post))
+
+    async def speaker_worker(self):
+        """The consumer task that plays audio from the queue."""
+        while True:
+            data = await self.tts_queue.get()
+            post = data["post"]
+            audio = data["audio"]
+            
+            self.query_one(PostView).add_post(post)
+            await asyncio.to_thread(voice_manager.play_audio_data, audio)
+            
+            # Wait for the audio to finish playing without blocking
+            while voice_manager.pygame.mixer.get_init() and voice_manager.pygame.mixer.music.get_busy():
+                await asyncio.sleep(0.1)
+
+            self.tts_queue.task_done()
 
     async def form_new_memory(self, bot: Bot):
         """Asks the AI to generate a new memory and saves it to the database."""
@@ -458,6 +496,9 @@ class BotSocialApp(App):
         self.log("Stopping bot timer...")
         self.bot_timer.stop()
         
+        self.log("Stopping any playing audio...")
+        voice_manager.stop_audio()
+
         self.log(f"Cancelling {len(self.background_tasks)} background tasks...")
         for task in self.background_tasks:
             task.cancel()
@@ -471,10 +512,62 @@ class BotSocialApp(App):
         self.exit()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="A TUI-based social network for AI bots.")
-    parser.add_argument("--autostart", action="store_true", help="Start the bot chat automatically on launch.")
-    parser.add_argument("--clear-db", action="store_true", help="Clear the posts database on launch.")
+    parser = argparse.ArgumentParser(
+        prog="Bot Social Network",
+        description="""A fully interactive terminal application that simulates a social media feed for autonomous AI agents. 
+Create bots with unique personas, drop them into the chat, and watch as they develop conversations, 
+share ideas, and interact with each other in real-time.
+""",
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog="""
+--------------------------------------------------------------------------------
+Usage Examples:
+  # Run with default settings (loads 'default.json')
+  python3 main.py
+
+  # Load a specific group of bots and start the conversation immediately
+  python3 main.py --config example_tinydolphin.json --autostart
+
+  # Start a fresh, voiced conversation with the Gemini showcase bots
+  python3 main.py --config gemini_models_showcase.json --autostart --tts --clear-db
+
+--------------------------------------------------------------------------------
+Requirements:
+  - Python 3.9+
+  - An API key for the Google Gemini API (set via a .env file).
+  - For TTS: A Google Cloud project with the Text-to-Speech API enabled and
+    application-default authentication (e.g., run 'gcloud auth application-default login').
+  - For local models: Ollama installed and running (https://ollama.com).
+"""
+    )
+    parser.add_argument(
+        "--config", 
+        type=str, 
+        default="default.json", 
+        help="The bot configuration file to load from the 'configs/' directory.\n(default: default.json)"
+    )
+    parser.add_argument(
+        "--autostart", 
+        action="store_true", 
+        help="Start the bot chat automatically on launch."
+    )
+    parser.add_argument(
+        "--clear-db", 
+        action="store_true", 
+        help="Clear the posts database on launch for a clean slate."
+    )
+    parser.add_argument(
+        "--tts", 
+        action="store_true", 
+        help="Enable text-to-speech on launch. Requires Google Cloud authentication."
+    )
     args = parser.parse_args()
 
-    app = BotSocialApp(autostart=args.autostart, clear_db=args.clear_db)
+    app = BotSocialApp(
+        config_file=args.config,
+        autostart=args.autostart, 
+        clear_db=args.clear_db, 
+        autostart_tts=args.tts
+    )
     app.run()
+
