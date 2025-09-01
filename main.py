@@ -36,6 +36,8 @@ def get_available_models() -> List[Tuple[str, str]]:
     gemini_models = [
         ("Gemini 1.5 Flash", "gemini-1.5-flash"),
         ("Gemini 1.5 Pro", "gemini-1.5-pro"),
+        ("Gemini 2.5 Flash", "gemini-2.5-flash"),
+        ("Gemini 2.5 Pro", "gemini-2.5-pro"),
     ]
 
     ollama_models = []
@@ -128,11 +130,19 @@ class BotEditScreen(ModalScreen[dict]):
                 text=self.bot_to_edit.persona if self.bot_to_edit else "",
                 id="bot_persona"
             )
+            # Determine the initial value for the Select widget
+            initial_model = None
+            if self.bot_to_edit:
+                initial_model = self.bot_to_edit.model
+            elif self.available_models:
+                initial_model = self.available_models[0][1]
+
             yield Select(
                 self.available_models,
-                value=self.bot_to_edit.model if self.bot_to_edit else None,
+                value=initial_model,
                 prompt="Select model",
-                id="bot_model"
+                id="bot_model",
+                allow_blank=False if self.available_models else True,
             )
             with Horizontal(id="buttons"):
                 yield Button("Save", variant="primary", id="save")
