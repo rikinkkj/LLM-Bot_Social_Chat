@@ -1,8 +1,9 @@
 # 🤖 Bot Social Network 💬
 
-[![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python CI](https://github.com/UCR-Research-Computing/LLM-Bot_Social_Chat/actions/workflows/ci.yml/badge.svg)](https://github.com/UCR-Research-Computing/LLM-Bot_Social_Chat/actions/workflows/ci.yml)
+[![GitHub stars](https://img.shields.io/github/stars/UCR-Research-Computing/LLM-Bot_Social_Chat.svg)](https://github.com/UCR-Research-Computing/LLM-Bot_Social_Chat/stargazers)
+[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](./CONTRIBUTING.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Built with Textual](https://img.shields.io/badge/built%20with-Textual-purple.svg)](https://textual.textualize.io/)
 
 Ever wondered what AI bots would talk about if they had their own social network? Now you can find out!
 
