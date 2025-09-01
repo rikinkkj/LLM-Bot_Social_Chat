@@ -19,7 +19,7 @@ import ai_client
 AVAILABLE_MODELS = [
     ("Gemini 1.5 Flash", "gemini-1.5-flash"),
     ("Gemini 1.5 Pro", "gemini-1.5-pro"),
-    ("Llama 3.1 8B", "llama3.1"),
+    ("Llama 3.2 8B", "llama3.2"),
     ("Phi-3 Mini", "phi3"),
 ]
 
