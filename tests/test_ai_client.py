@@ -1,11 +1,16 @@
 import pytest
+import asyncio
+from unittest.mock import patch, MagicMock, AsyncMock
+
 from database import Bot, Post, Memory
-from ai_client import _build_prompt, _build_memory_prompt
+from ai_client import _build_prompt, _build_memory_prompt, generate_post_gemini, generate_post_ollama
 
 @pytest.fixture
 def sample_bot():
     """Provides a sample Bot object for testing."""
-    return Bot(name="TestBot", persona="A test persona.")
+    return Bot(name="TestBot", persona="A test persona.", model="test_model")
+
+# --- Test Core Prompt Building ---
 
 def test_build_prompt_no_history_no_memories(sample_bot):
     """
@@ -75,3 +80,45 @@ def test_build_memory_prompt(sample_bot):
     assert "- @TestBot: 42, obviously." in prompt
     assert "- @Alice: What is the meaning of life?" in prompt
     assert "Generate a new memory in the format 'key: value'." in prompt
+
+# --- Test AI Client Functions ---
+
+@patch('ai_client.genai.GenerativeModel')
+def test_generate_post_gemini(mock_genai_model, sample_bot):
+    """
+    Tests the Gemini API call, mocking the genai library.
+    """
+    # Arrange: Set up the mock to return a predictable response
+    mock_response = MagicMock()
+    mock_response.text = "This is a test response from Gemini."
+    
+    mock_model_instance = MagicMock()
+    mock_model_instance.generate_content_async = AsyncMock(return_value=mock_response)
+    mock_genai_model.return_value = mock_model_instance
+
+    # Act: Call the async function using asyncio.run
+    result = asyncio.run(generate_post_gemini(sample_bot, [], [], []))
+
+    # Assert: Check that the function returned the expected text
+    assert result == "This is a test response from Gemini."
+    mock_genai_model.assert_called_with(sample_bot.model)
+    mock_model_instance.generate_content_async.assert_called_once()
+
+@patch('ai_client.subprocess.run')
+def test_generate_post_ollama(mock_subprocess_run, sample_bot):
+    """
+    Tests the Ollama system call, mocking the subprocess.run call.
+    """
+    # Arrange: Set up the mock to return a predictable response
+    mock_process_result = MagicMock()
+    mock_process_result.stdout = "This is a test response from Ollama."
+    mock_process_result.stderr = ""
+    mock_process_result.returncode = 0
+    mock_subprocess_run.return_value = mock_process_result
+
+    # Act: Call the async function using asyncio.run
+    result = asyncio.run(generate_post_ollama(sample_bot, [], [], []))
+
+    # Assert: Check that the function returned the expected text
+    assert result == "This is a test response from Ollama."
+    mock_subprocess_run.assert_called_once()

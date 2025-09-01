@@ -14,3 +14,8 @@ __pycache__/
 # Bot Configurations
 configs/*.json
 !configs/default.json
+!configs/example_tinydolphin.json
+!configs/example_gemma3n.json
+!configs/example_gpt-oss.json
+!configs/gemini_models_showcase.json
+!configs/gemini_test_suite.json
