@@ -211,6 +211,7 @@ class BotSocialApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
+        self.run_task(self.load_bots_from_json("default.json"))
         self.bot_timer = self.set_interval(8, self.run_bot_activity, pause=not self.autostart)
 
     def run_task(self, coro):
