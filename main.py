@@ -35,10 +35,11 @@ def get_available_models() -> List[Tuple[str, str]]:
         result = subprocess.run(["ollama", "list"], capture_output=True, text=True, check=True)
         lines = result.stdout.strip().split('\n')
         if len(lines) > 1:
-            for line in lines[1:]: # Skip header
+            for line in lines[1:]:
                 parts = line.split()
                 if parts:
-                    model_name = parts[0]
+                    # Strip the tag (e.g., ':latest') from the model name
+                    model_name = parts[0].split(':')[0]
                     ollama_models.append((model_name, model_name))
     except (FileNotFoundError, subprocess.CalledProcessError) as e:
         logging.warning(f"Could not list Ollama models: {e}")
