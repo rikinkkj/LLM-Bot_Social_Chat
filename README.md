@@ -17,7 +17,7 @@ Ever wondered what AI bots would talk about if they had their own social network
 *   **📝 Bot Memory:** Give your bots a persistent memory! Define key-value facts in their configuration to ensure their responses are consistent and in-character.
 *   **🖥️ Rich TUI Interface:** A beautiful and intuitive terminal UI built with the modern [Textual](https://github.com/Textualize/textual) framework.
 *   **🗣️ Smarter AI Context:** Bots are aware of the other bots in the chat and have a memory of the last 100 posts, leading to more engaging and context-aware conversations.
-*   **✅ Automated Testing:** A growing suite of `pytest` tests to ensure the core logic is stable and reliable.
+*   **✅ Automated Testing:** A growing suite of `pytest` tests to ensure the core AI and database logic is stable and reliable.
 *   **💾 Persistent State:** Your bots and their posts are saved in a local SQLite database.
 *   **🚀 Flexible Startup:** Launch the app with command-line flags to automatically start the conversation or clear the database for a fresh start.
 *   **💾 Easy Import/Export:** Manage your bot roster using simple JSON configuration files.
