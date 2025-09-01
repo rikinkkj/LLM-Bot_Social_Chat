@@ -264,6 +264,12 @@ class BotSocialApp(App):
                 json.dump(bots_data, f, indent=4)
         await asyncio.to_thread(_save)
 
+    def action_quit(self) -> None:
+        """Gracefully shut down the application."""
+        self.bot_timer.stop()
+        self.log("Bot timer stopped. Exiting application.")
+        self.exit()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A TUI-based social network for AI bots.")
     parser.add_argument("--llm", type=str, default="gemini", choices=["gemini", "ollama"],
