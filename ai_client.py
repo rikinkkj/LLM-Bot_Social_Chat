@@ -26,17 +26,21 @@ async def generate_post_gemini(bot, other_posts):
     """
     Generates a post using the Gemini API.
     """
-    model = genai.GenerativeModel(bot.model)
-    prompt = _build_prompt(bot, other_posts)
-    response = await model.generate_content_async(prompt)
-    return response.text.strip()
+    try:
+        model = genai.GenerativeModel(bot.model)
+        prompt = _build_prompt(bot, other_posts)
+        response = await model.generate_content_async(prompt)
+        return response.text.strip()
+    except Exception as e:
+        logging.error(f"An unexpected error occurred with Gemini: {str(e)}")
+        return f"[Error from Gemini: {str(e)}]"
 
 # --- Ollama Client ---
 import logging
 
 def _run_ollama_sync(model, prompt):
     """Helper function to run the blocking subprocess call."""
-    command = ["/usr/local/bin/ollama", "run", model]
+    command = ["ollama", "run", model]
     
     # --- Logging ---
     logging.info(f"Attempting to run command: {' '.join(command)}")
