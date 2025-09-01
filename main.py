@@ -81,7 +81,7 @@ class BotEditScreen(ModalScreen[dict]):
 class BotManager(ListView):
     def on_mount(self) -> None:
         self.border_title = "Bots"
-        self.run_task(self.refresh_bots())
+        self.app.run_task(self.refresh_bots())
 
     async def refresh_bots(self):
         def _get_bots():
@@ -94,7 +94,7 @@ class BotManager(ListView):
 class PostView(ListView):
     def on_mount(self) -> None:
         self.border_title = "Posts"
-        self.run_task(self.refresh_posts())
+        self.app.run_task(self.refresh_posts())
 
     def add_post(self, post: Post):
         sender = post.sender if post.sender else post.bot.name
