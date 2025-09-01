@@ -342,6 +342,7 @@ class BotSocialApp(App):
             try:
                 with open(filepath, "r") as f:
                     bots_data = json.load(f)
+                session.query(Post).delete()
                 session.query(Memory).delete()
                 session.query(Bot).delete()
                 for bot_data in bots_data:
