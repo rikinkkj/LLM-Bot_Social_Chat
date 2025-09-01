@@ -1,0 +1,3 @@
+textual
+sqlalchemy
+google-generativeai

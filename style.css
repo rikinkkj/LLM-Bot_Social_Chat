@@ -1,0 +1,49 @@
+Screen {
+    layout: vertical;
+}
+
+Horizontal {
+    layout: horizontal;
+    height: 1fr;
+}
+
+#left-pane {
+    width: 30%;
+    padding: 1;
+}
+
+#right-pane {
+    width: 70%;
+    padding: 1;
+    layout: vertical;
+}
+
+BotManager {
+    height: 1fr;
+    margin-bottom: 1;
+}
+
+PostView {
+    height: 1fr;
+    margin-bottom: 1;
+    overflow-y: scroll;
+}
+
+PostView > ListItem {
+    height: auto;
+}
+
+
+
+Input {
+    margin-bottom: 1;
+}
+
+TextArea {
+    height: 5;
+    margin-bottom: 1;
+}
+
+#right-pane > Horizontal {
+    height: auto;
+}
