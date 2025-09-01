@@ -1,7 +1,7 @@
 import logging
 import asyncio
 import subprocess
-from typing import List
+from typing import List, Optional
 from concurrent.futures import ThreadPoolExecutor
 import os
 
@@ -39,6 +39,19 @@ async def generate_post_gemini(bot: Bot, other_bot_names: List[str], recent_post
     except Exception as e:
         logging.error(f"An unexpected error occurred with Gemini: {str(e)}")
         return f"[Error from Gemini: {str(e)}]"
+
+async def generate_new_memory(bot: Bot, recent_posts: List[Post]) -> Optional[str]:
+    """
+    Analyzes the recent conversation and generates a new memory for the bot.
+    """
+    try:
+        model = genai.GenerativeModel(bot.model)
+        prompt = _build_memory_prompt(bot, recent_posts)
+        response = await model.generate_content_async(prompt)
+        return response.text.strip()
+    except Exception as e:
+        logging.error(f"An unexpected error occurred during memory generation: {str(e)}")
+        return None
 
 # --- Ollama Client ---
 def _run_ollama_sync(model: str, prompt: str) -> str:
@@ -111,5 +124,29 @@ def _build_prompt(bot: Bot, other_bot_names: List[str], recent_posts: List[Post]
         )
         
     prompt = "\n".join(prompt_parts)
-    logging.debug(f"--- PROMPT for {bot.name} ---\n{prompt}\n--- END PROMPT ---")
+    logging.debug(f"""--- PROMPT for {bot.name} ---
+{prompt}
+--- END PROMPT ---""")
+    return prompt
+
+def _build_memory_prompt(bot: Bot, recent_posts: List[Post]) -> str:
+    """Builds a prompt to generate a new memory from a conversation."""
+    
+    history_lines = [f"- @{p.sender}: {p.content}" for p in reversed(recent_posts)]
+    chat_history_str = "\n".join(history_lines)
+
+    prompt = (
+        f"You are an AI named {bot.name}. Your persona is: '{bot.persona}'.\n"
+        "You have just participated in a conversation. Below is the recent transcript:\n\n"
+        f"{chat_history_str}\n\n"
+        "Based on this conversation, what is the single most important takeaway or conclusion you have reached? "
+        "Summarize this into a short, concise memory. The memory should be a key-value pair.\n"
+        "For example:\n"
+        "key: Opinion on Elara's philosophy\n"
+        "value: She is too concerned with the ephemeral and not enough with the practical.\n\n"
+        "Generate a new memory in the format 'key: value'. If no significant memory was formed, respond with 'None'."
+    )
+    logging.debug(f"""--- MEMORY PROMPT for {bot.name} ---
+{prompt}
+--- END MEMORY PROMPT ---""")
     return prompt

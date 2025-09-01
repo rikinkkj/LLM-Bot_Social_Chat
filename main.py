@@ -16,6 +16,18 @@ from textual.binding import Binding
 from database import Bot, Post, Memory, session, close_database_connection, clear_posts_table
 import ai_client
 
+# --- Helper Functions ---
+
+def _parse_memory_string(memory_string: Optional[str]) -> Optional[Tuple[str, str]]:
+    """Parses a 'key: value' string into a tuple, handling errors."""
+    if not memory_string or memory_string.lower().strip() == "none" or ":" not in memory_string:
+        return None
+    try:
+        key, value = memory_string.split(":", 1)
+        return key.strip(), value.strip()
+    except ValueError:
+        return None
+
 # --- Model Loading ---
 
 def get_available_models() -> List[Tuple[str, str]]:
@@ -305,6 +317,26 @@ class BotSocialApp(App):
         sender_name = "SYSTEM" if post_content.startswith(("[Error", "[SYSTEM")) else bot_to_post.name
         new_post = await asyncio.to_thread(self.create_post, post_content, sender_name, bot_to_post)
         self.query_one(PostView).add_post(new_post)
+        
+        # After posting, try to form a new memory
+        self.run_task(self.form_new_memory(bot_to_post))
+
+    async def form_new_memory(self, bot: Bot):
+        """Asks the AI to generate a new memory and saves it to the database."""
+        recent_posts = await asyncio.to_thread(
+            session.query(Post).order_by(Post.id.desc()).limit(5).all
+        )
+        
+        new_memory_str = await ai_client.generate_new_memory(bot, recent_posts)
+        
+        parsed_memory = _parse_memory_string(new_memory_str)
+        if parsed_memory:
+            key, value = parsed_memory
+            new_memory = Memory(key=key, value=value, bot=bot)
+            await asyncio.to_thread(self.db_add_memory, new_memory)
+            logging.info(f"New memory for {bot.name}: {key} = {value}")
+        else:
+            logging.info(f"No new memory formed for {bot.name}.")
 
     # --- Core Actions ---
 
@@ -382,6 +414,10 @@ class BotSocialApp(App):
         await asyncio.to_thread(_save)
 
     # --- Database Helper Methods ---
+
+    def db_add_memory(self, memory: Memory):
+        session.add(memory)
+        session.commit()
 
     def create_post(self, content, sender, bot=None):
         new_post = Post(content=content, sender=sender, bot=bot)

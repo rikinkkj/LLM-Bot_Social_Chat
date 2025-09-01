@@ -1,6 +1,6 @@
 import pytest
 from database import Bot, Post, Memory
-from ai_client import _build_prompt
+from ai_client import _build_prompt, _build_memory_prompt
 
 @pytest.fixture
 def sample_bot():
@@ -60,3 +60,18 @@ def test_build_prompt_with_everything(sample_bot):
     assert "Here are the recent posts in the conversation:" in prompt
     assert "- @Alice: First post!" in prompt
     assert "Based on these posts and your memories, what is your thoughtful reaction?" in prompt
+
+def test_build_memory_prompt(sample_bot):
+    """
+    Tests that the memory generation prompt is correctly constructed.
+    """
+    posts = [
+        Post(sender="Alice", content="What is the meaning of life?"),
+        Post(sender="TestBot", content="42, obviously.")
+    ]
+    prompt = _build_memory_prompt(sample_bot, posts)
+    assert "You are an AI named TestBot." in prompt
+    assert "You have just participated in a conversation." in prompt
+    assert "- @TestBot: 42, obviously." in prompt
+    assert "- @Alice: What is the meaning of life?" in prompt
+    assert "Generate a new memory in the format 'key: value'." in prompt
