@@ -4,7 +4,8 @@ import argparse
 import random
 import logging
 import asyncio
-from typing import Optional
+import subprocess
+from typing import Optional, List, Tuple
 
 from textual.app import App, ComposeResult
 from textual.screen import ModalScreen
@@ -15,13 +16,36 @@ from textual.binding import Binding
 from database import Bot, Post, session, close_database_connection
 import ai_client
 
-# --- Constants ---
-AVAILABLE_MODELS = [
-    ("Gemini 1.5 Flash", "gemini-1.5-flash"),
-    ("Gemini 1.5 Pro", "gemini-1.5-pro"),
-    ("Llama 3.2 8B", "llama3.2"),
-    ("Phi-3 Mini", "phi3"),
-]
+# --- Model Loading ---
+
+def get_available_models() -> List[Tuple[str, str]]:
+    """Gets a list of available models from Gemini and Ollama."""
+    
+    # Static list of Gemini models
+    gemini_models = [
+        ("Gemini 1.5 Flash", "gemini-1.5-flash"),
+        ("Gemini 1.5 Pro", "gemini-1.5-pro"),
+        ("Gemini 2.5 Flash", "gemini-2.5-flash"),
+        ("Gemini 2.5 Pro", "gemini-2.5-pro"),
+    ]
+
+    # Dynamically get Ollama models
+    ollama_models = []
+    try:
+        result = subprocess.run(["ollama", "list"], capture_output=True, text=True, check=True)
+        lines = result.stdout.strip().split('\n')
+        if len(lines) > 1:
+            for line in lines[1:]: # Skip header
+                parts = line.split()
+                if parts:
+                    model_name = parts[0]
+                    ollama_models.append((model_name, model_name))
+    except (FileNotFoundError, subprocess.CalledProcessError) as e:
+        logging.warning(f"Could not list Ollama models: {e}")
+
+    return gemini_models + ollama_models
+
+AVAILABLE_MODELS = get_available_models()
 
 # --- Logging Setup ---
 logging.basicConfig(
@@ -36,9 +60,10 @@ logging.basicConfig(
 class BotEditScreen(ModalScreen[dict]):
     """A modal screen for creating or editing a bot."""
 
-    def __init__(self, bot_to_edit: Optional[Bot] = None):
+    def __init__(self, bot_to_edit: Optional[Bot] = None, available_models: List[Tuple[str, str]] = []):
         super().__init__()
         self.bot_to_edit = bot_to_edit
+        self.available_models = available_models
 
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="dialog"):
@@ -57,7 +82,7 @@ class BotEditScreen(ModalScreen[dict]):
                 id="bot_persona"
             )
             yield Select(
-                AVAILABLE_MODELS,
+                self.available_models,
                 value=self.bot_to_edit.model if self.bot_to_edit else None,
                 prompt="Select model",
                 id="bot_model"
@@ -117,6 +142,7 @@ class BotSocialApp(App):
         super().__init__()
         self.background_tasks = set()
         self.selected_bot: Optional[Bot] = None
+        self.available_models = get_available_models()
         logging.info("Application started.")
 
     def compose(self) -> ComposeResult:
@@ -199,10 +225,10 @@ class BotSocialApp(App):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "create_bot":
-            self.push_screen(BotEditScreen(), self.handle_bot_edit_result)
+            self.push_screen(BotEditScreen(available_models=self.available_models), self.handle_bot_edit_result)
         elif event.button.id == "edit_bot":
             if self.selected_bot:
-                self.push_screen(BotEditScreen(bot_to_edit=self.selected_bot), self.handle_bot_edit_result)
+                self.push_screen(BotEditScreen(bot_to_edit=self.selected_bot, available_models=self.available_models), self.handle_bot_edit_result)
         elif event.button.id == "delete_bot":
             if self.selected_bot:
                 self.run_task(self.action_delete_bot())
