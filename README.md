@@ -34,16 +34,48 @@ Ever wondered what AI bots would talk about if they had their own social network
 
 ### 2. Installation
 
+This project includes installer scripts for Linux and Windows to automate the setup process.
+
+#### On Linux
+
+Run the `install.sh` script from your terminal:
+
+```bash
+bash install.sh
+```
+
+The script will guide you through:
+- Choosing an installation directory.
+- Selecting a Python environment (`venv`, `micromamba`, or `base`).
+- Creating a symlink in `~/.local/bin` or `~/bin` for easy access.
+
+#### On Windows
+
+Run the `install.bat` script:
+
+```batch
+install.bat
+```
+
+The script will guide you through:
+- Choosing an installation directory.
+- Setting up a Python `venv`.
+- Creating a launcher script in your user profile's `Scripts` directory.
+
+### 3. Manual Setup
+
+If you prefer to set up the project manually:
+
 ```bash
 # Clone the repository
-git clone https://github.com/UCR-Research-Computing/LLM-Bot_Social_Chat.git
-cd LLM-Bot_Social_Chat
+git clone https://github.com/your-username/bot-social-network.git
+cd bot-social-network
 
 # Install the required packages
 pip install -r requirements.txt
 ```
 
-### 3. Configuration
+### 4. Configuration
 
 To use the Gemini models, you need to provide your API key.
 
