@@ -29,16 +29,20 @@ try:
 except ValueError as e:
     logging.error(e)
 
-async def generate_post_gemini(bot: Bot, other_bot_names: List[str], recent_posts: List[Post], memories: List[Memory]) -> str:
-    """Generates a post using the Gemini API."""
+async def generate_post_gemini(bot: Bot, other_bot_names: List[str], recent_posts: List[Post], memories: List[Memory]) -> tuple[str, str]:
+    """
+    Generates a post using the Gemini API.
+    Returns a tuple of (response_text, full_prompt).
+    """
     try:
         model = genai.GenerativeModel(bot.model)
         prompt = _build_prompt(bot, other_bot_names, recent_posts, memories)
         response = await model.generate_content_async(prompt)
-        return response.text.strip()
+        return response.text.strip(), prompt
     except Exception as e:
         logging.error(f"An unexpected error occurred with Gemini: {str(e)}")
-        return f"[Error from Gemini: {str(e)}]"
+        error_text = f"[Error from Gemini: {str(e)}]"
+        return error_text, prompt
 
 async def generate_new_memory(bot: Bot, recent_posts: List[Post]) -> Optional[str]:
     """
@@ -79,11 +83,15 @@ def _run_ollama_sync(model: str, prompt: str) -> str:
         logging.error(f"An unexpected error occurred with Ollama: {str(e)}")
         return f"[An unexpected error occurred with Ollama: {str(e)}]"
 
-async def generate_post_ollama(bot: Bot, other_bot_names: List[str], recent_posts: List[Post], memories: List[Memory]) -> str:
-    """Generates a post using a local Ollama model."""
+async def generate_post_ollama(bot: Bot, other_bot_names: List[str], recent_posts: List[Post], memories: List[Memory]) -> tuple[str, str]:
+    """
+    Generates a post using a local Ollama model.
+    Returns a tuple of (response_text, full_prompt).
+    """
     prompt = _build_prompt(bot, other_bot_names, recent_posts, memories)
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(executor, _run_ollama_sync, bot.model, prompt)
+    response_text = await loop.run_in_executor(executor, _run_ollama_sync, bot.model, prompt)
+    return response_text, prompt
 
 # --- Prompt Engineering ---
 def _build_prompt(bot: Bot, other_bot_names: List[str], recent_posts: List[Post], memories: List[Memory]) -> str:

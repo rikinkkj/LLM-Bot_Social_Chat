@@ -5,3 +5,4 @@ textual
 pytest
 pygame
 google-cloud-texttospeech
+python-json-logger

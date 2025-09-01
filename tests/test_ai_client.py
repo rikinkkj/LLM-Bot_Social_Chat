@@ -97,10 +97,11 @@ def test_generate_post_gemini(mock_genai_model, sample_bot):
     mock_genai_model.return_value = mock_model_instance
 
     # Act: Call the async function using asyncio.run
-    result = asyncio.run(generate_post_gemini(sample_bot, [], [], []))
+    response_text, prompt = asyncio.run(generate_post_gemini(sample_bot, [], [], []))
 
     # Assert: Check that the function returned the expected text
-    assert result == "This is a test response from Gemini."
+    assert response_text == "This is a test response from Gemini."
+    assert "You are an AI named TestBot" in prompt
     mock_genai_model.assert_called_with(sample_bot.model)
     mock_model_instance.generate_content_async.assert_called_once()
 
@@ -117,8 +118,9 @@ def test_generate_post_ollama(mock_subprocess_run, sample_bot):
     mock_subprocess_run.return_value = mock_process_result
 
     # Act: Call the async function using asyncio.run
-    result = asyncio.run(generate_post_ollama(sample_bot, [], [], []))
+    response_text, prompt = asyncio.run(generate_post_ollama(sample_bot, [], [], []))
 
     # Assert: Check that the function returned the expected text
-    assert result == "This is a test response from Ollama."
+    assert response_text == "This is a test response from Ollama."
+    assert "You are an AI named TestBot" in prompt
     mock_subprocess_run.assert_called_once()

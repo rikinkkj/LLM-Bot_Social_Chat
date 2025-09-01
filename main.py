@@ -16,6 +16,10 @@ from textual.binding import Binding
 from database import Bot, Post, Memory, session, close_database_connection, clear_posts_table
 import ai_client
 import voice_manager
+import logging_config
+
+# --- Initialize Logging ---
+log_filename = logging_config.setup_logging()
 
 # --- Helper Functions ---
 
@@ -215,7 +219,13 @@ class BotSocialApp(App):
         self.selected_bot: Optional[Bot] = None
         self.available_models = get_available_models()
         self.bot_names: List[str] = []
-        logging.info("Application started.")
+        logging.info("Application started.", extra={
+            'event': 'system.start',
+            'config_file': self.config_file,
+            'autostart': self.autostart,
+            'tts_enabled': self.tts_enabled,
+            'clear_db': clear_db
+        })
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -330,16 +340,26 @@ class BotSocialApp(App):
         )
 
         post_content = ""
+        prompt = ""
         try:
             if bot_to_post.model.startswith("gemini"):
-                post_content = await ai_client.generate_post_gemini(bot_to_post, other_bot_names, recent_posts, memories)
+                post_content, prompt = await ai_client.generate_post_gemini(bot_to_post, other_bot_names, recent_posts, memories)
             else:
-                post_content = await ai_client.generate_post_ollama(bot_to_post, other_bot_names, recent_posts, memories)
+                post_content, prompt = await ai_client.generate_post_ollama(bot_to_post, other_bot_names, recent_posts, memories)
         except Exception as e:
             post_content = f"[SYSTEM Error: {e}]"
+            logging.error("Error generating post", extra={'event': 'post.generation.fail', 'bot_name': bot_to_post.name, 'error': str(e)})
 
         sender_name = "SYSTEM" if post_content.startswith(("[Error", "[SYSTEM")) else bot_to_post.name
         new_post = await asyncio.to_thread(self.create_post, post_content, sender_name, bot_to_post)
+
+        logging.info("Bot post generated", extra={
+            'event': 'post.generated',
+            'bot_name': bot_to_post.name,
+            'bot_model': bot_to_post.model,
+            'post_content': post_content,
+            'prompt': prompt
+        })
 
         if self.tts_enabled and not post_content.startswith("[SYSTEM"):
             voice_name = voice_manager.select_voice(bot_to_post.name)
@@ -382,9 +402,18 @@ class BotSocialApp(App):
             key, value = parsed_memory
             new_memory = Memory(key=key, value=value, bot=bot)
             await asyncio.to_thread(self.db_add_memory, new_memory)
-            logging.info(f"New memory for {bot.name}: {key} = {value}")
+            logging.info(f"New memory for {bot.name}", extra={
+                'event': 'memory.form.success',
+                'bot_name': bot.name,
+                'memory_key': key,
+                'memory_value': value
+            })
         else:
-            logging.info(f"No new memory formed for {bot.name}.")
+            logging.info(f"No new memory formed for {bot.name}.", extra={
+                'event': 'memory.form.fail',
+                'bot_name': bot.name,
+                'llm_response': new_memory_str
+            })
 
     # --- Core Actions ---
 
@@ -440,8 +469,11 @@ class BotSocialApp(App):
         
         error = await asyncio.to_thread(_load)
         if error:
+            logging.error(f"Failed to load config file: {filename}", extra={'event': 'config.load.fail', 'config_filename': filename})
             error_post = await asyncio.to_thread(self.create_post, f"Error loading {filename}.", "SYSTEM")
             self.query_one(PostView).add_post(error_post)
+        else:
+            logging.info(f"Successfully loaded config file: {filename}", extra={'event': 'config.load.success', 'config_filename': filename})
         await self.query_one(BotManager).refresh_bots()
         await self.query_one(PostView).refresh_posts()
 
@@ -508,15 +540,20 @@ class BotSocialApp(App):
         self.log("Closing database connection...")
         await asyncio.to_thread(close_database_connection)
         
+        logging.info("Application exited.", extra={'event': 'system.stop'})
         self.log("Exiting application.")
         self.exit()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="Bot Social Network",
-        description="""A fully interactive terminal application that simulates a social media feed for autonomous AI agents. 
+        description="""
+A fully interactive terminal application that simulates a social media feed for autonomous AI agents. 
 Create bots with unique personas, drop them into the chat, and watch as they develop conversations, 
 share ideas, and interact with each other in real-time.
+
+Each simulation run is captured in a unique, timestamped JSONL file in the 'logs/' directory, 
+making this tool suitable for research and analysis of AI agent interactions.
 """,
         formatter_class=argparse.RawTextHelpFormatter,
         epilog="""
