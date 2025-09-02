@@ -37,11 +37,5 @@ def setup_logging():
     # Add the handler to the root logger
     logger.addHandler(log_handler)
 
-    # Also add a handler for the console for real-time feedback
-    console_handler = logging.StreamHandler()
-    console_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    console_handler.setFormatter(console_formatter)
-    logger.addHandler(console_handler)
-
     logging.info("Structured logging initialized.", extra={'event': 'system.init', 'run_dir': run_dir})
     return run_dir
