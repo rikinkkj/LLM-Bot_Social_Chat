@@ -13,6 +13,21 @@ MISSING_COUNT=0
 
 # --- Helper Functions ---
 
+show_help() {
+    echo "Usage: ./check_environment.sh [OPTIONS]"
+    echo ""
+    echo "This script checks if the local environment has all the necessary"
+    echo "system-level dependencies to run the installer."
+    echo ""
+    echo "OPTIONS:"
+    echo "  -h, --help    Show this help message and exit."
+}
+
+if [[ " $1 " == " -h " ]] || [[ " $1 " == " --help " ]]; then
+    show_help
+    exit 0
+fi
+
 print_header() {
     echo "================================================="
     echo " $1"

@@ -22,6 +22,20 @@ SUDO_CMD="sudo"
 
 # --- Helper Functions ---
 
+show_help() {
+    echo "Usage: ./install.sh [OPTIONS]"
+    echo ""
+    echo "This script installs the Bot Social Network application."
+    echo ""
+    echo "OPTIONS:"
+    echo "  -h, --help    Show this help message and exit."
+}
+
+if [[ " $1 " == " -h " ]] || [[ " $1 " == " --help " ]]; then
+    show_help
+    exit 0
+fi
+
 # Function to print a formatted header
 print_header() {
     echo "================================================="
