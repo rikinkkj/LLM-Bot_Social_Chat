@@ -1,10 +1,8 @@
 import asyncio
 import argparse
 import logging
-import sys
 import time
 import os
-import signal
 from typing import Optional
 
 from simulation import Simulation

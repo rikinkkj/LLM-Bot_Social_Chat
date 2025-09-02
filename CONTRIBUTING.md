@@ -29,9 +29,9 @@ If you're ready to contribute code, here's how to get started:
     pip install -r requirements.txt
     ```
 4.  **Make Your Changes:** Write your code and add new tests for your feature.
-5.  **Run the Tests:** Make sure the entire test suite passes.
+5.  **Run Local Checks:** Before committing, run all local checks to ensure your code meets our quality standards.
     ```bash
-    python3 -m pytest
+    ./run_checks.sh
     ```
 6.  **Commit Your Changes:** Use a clear and descriptive commit message.
 7.  **Push to Your Branch:** `git push origin feature/YourAmazingFeature`

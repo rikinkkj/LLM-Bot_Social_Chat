@@ -1,5 +1,4 @@
-import pytest
-from database import Bot, Post, Memory, clear_posts_table
+from database import Bot, Post, Memory
 
 def test_create_bot(db_session):
     """Tests that a Bot can be created and added to the database."""

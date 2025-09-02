@@ -1,9 +1,7 @@
 import json
 import argparse
-import random
 import logging
 import asyncio
-import subprocess
 import os
 import tempfile
 from typing import Optional, List, Tuple
@@ -14,9 +12,10 @@ from textual.widgets import Header, Footer, ListView, ListItem, Label, Input, Bu
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.binding import Binding
 import logging_config
+import voice_manager
 
-from database import Bot, Post, Memory, session, close_database_connection, clear_posts_table, db_create_bot, db_edit_bot, db_delete_bot, db_clear_posts
-from simulation import Simulation, _parse_memory_string, get_available_models
+from database import Bot, Post, session, close_database_connection, db_create_bot, db_edit_bot, db_delete_bot, db_clear_posts
+from simulation import Simulation, get_available_models
 
 # --- Initialize Logging ---
 log_filename = logging_config.setup_logging()

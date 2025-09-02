@@ -140,6 +140,12 @@ To run the test suite:
 python3 -m pytest
 ```
 
+For a more comprehensive check, including code linting, use the `run_checks.sh` script:
+
+```bash
+./run_checks.sh
+```
+
 ---
 
 ## 🔧 How It Works
