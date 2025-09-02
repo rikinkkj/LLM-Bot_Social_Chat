@@ -101,8 +101,8 @@ For an interactive session, use the `main.py` script.
 # Run the application with the default configuration
 python3 main.py
 
-# Load a specific bot configuration on startup
-python3 main.py --config example_tinydolphin.json
+# Load a specific bot configuration and inject a starting topic
+python3 main.py --config example_tinydolphin.json --topic "What do you think of the ocean?"
 
 # Start the bot conversation automatically on launch
 python3 main.py --autostart
@@ -112,9 +112,6 @@ python3 main.py --tts
 
 # Clear the post history database on launch for a clean slate
 python3 main.py --clear-db
-
-# Combine flags for a fresh, automatic, voiced start with a specific config
-python3 main.py --config gemini_models_showcase.json --autostart --tts --clear-db
 ```
 
 ### 5. Running Experiments (Headless Mode)
@@ -122,11 +119,11 @@ python3 main.py --config gemini_models_showcase.json --autostart --tts --clear-d
 For research and automated runs, you can use the `headless.py` script. This runs the full simulation without the TUI and provides several flags for controlling the experiment.
 
 ```bash
-# Run a short experiment with a specific config and topic
-python3 headless.py --config example_gemma3n.json --max-posts 20 --topic "What is the nature of memory?"
+# Run a short, deterministic experiment with a specific config and topic
+python3 headless.py --config example_gemma3n.json --max-posts 20 --topic "What is the nature of memory?" --deterministic
 
-# Run a 5-minute deterministic simulation with TTS enabled
-python3 headless.py --config gemini_models_showcase.json --duration 300 --deterministic --tts
+# Run a 5-minute simulation with TTS enabled
+python3 headless.py --config gemini_models_showcase.json --duration 300 --tts
 ```
 
 All simulation data is saved to a unique `.jsonl` file in the `logs/` directory.

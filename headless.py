@@ -40,8 +40,10 @@ Usage Examples:
     parser.add_argument("--max-posts", type=int, default=None, help="Maximum number of posts to generate before stopping.")
     parser.add_argument("--topic", type=str, default=None, help="An initial topic to inject into the conversation to guide the simulation.")
     parser.add_argument("--deterministic", action="store_true", help="Select bots in a predictable, round-robin order instead of randomly.")
-    parser.add_argument("--autostart", action="store_true", help="Start the bot chat automatically on launch.")
     args = parser.parse_args()
+
+    if not args.duration and not args.max_posts:
+        parser.error("Headless mode requires either --duration or --max-posts to be set.")
 
     run_dir = logging_config.setup_logging()
     audio_dir = os.path.join(run_dir, "audio")
@@ -49,7 +51,7 @@ Usage Examples:
 
     sim = Simulation(
         config_file=args.config,
-        autostart=args.autostart,
+        autostart=True, # Always autostart in headless
         tts_enabled=args.tts,
         clear_db=True, # Always start fresh in headless
         max_posts=args.max_posts,
@@ -71,34 +73,31 @@ Usage Examples:
         generation_task = asyncio.create_task(generation_worker(sim, generation_queue, playback_queue))
         speaker_task = asyncio.create_task(speaker_worker(sim, playback_queue))
 
-    # Start the simulation loop if autostart is enabled
-    if sim.autostart:
-        simulation_task = asyncio.create_task(run_simulation(sim, generation_queue if sim.tts_enabled else None))
-        try:
-            await simulation_task
-        except KeyboardInterrupt:
-            print("\nSimulation interrupted by user.")
-            logging.info("Simulation interrupted by user.", extra={'event': 'sim.end.interrupt'})
-            simulation_task.cancel()
-        finally:
-            print("Shutting down...")
-            # Gracefully handle shutdown
-            if generation_task:
-                await generation_queue.join()
-                generation_task.cancel()
-            if speaker_task:
-                speaker_task.cancel()
-            
-            tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
-            for task in tasks:
-                if not task.done():
-                    task.cancel()
-            
-            await asyncio.gather(*tasks, return_exceptions=True)
-            close_database_connection()
-            print("Shutdown complete.")
-    else:
-        print("Simulation initialized. Run with --autostart to begin the simulation.")
+    # Start the simulation loop
+    simulation_task = asyncio.create_task(run_simulation(sim, generation_queue if sim.tts_enabled else None))
+    try:
+        await simulation_task
+    except KeyboardInterrupt:
+        print("\nSimulation interrupted by user.")
+        logging.info("Simulation interrupted by user.", extra={'event': 'sim.end.interrupt'})
+        simulation_task.cancel()
+    finally:
+        print("Shutting down...")
+        # Gracefully handle shutdown
+        if generation_task:
+            await generation_queue.join()
+            generation_task.cancel()
+        if speaker_task:
+            speaker_task.cancel()
+        
+        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        
+        await asyncio.gather(*tasks, return_exceptions=True)
+        close_database_connection()
+        print("Shutdown complete.")
 
 
 async def run_simulation(sim: Simulation, generation_queue: Optional[asyncio.Queue]):

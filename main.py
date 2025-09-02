@@ -160,13 +160,14 @@ class BotSocialApp(App):
     CSS_PATH = "style.css"
     BINDINGS = [Binding("q", "quit", "Quit")]
 
-    def __init__(self, config_file: str = "default.json", autostart: bool = False, clear_db: bool = False, autostart_tts: bool = False):
+    def __init__(self, config_file: str = "default.json", autostart: bool = False, clear_db: bool = False, autostart_tts: bool = False, topic: Optional[str] = None):
         super().__init__()
         self.simulation = Simulation(
             config_file=config_file,
             autostart=autostart,
             tts_enabled=autostart_tts,
-            clear_db=clear_db
+            clear_db=clear_db,
+            topic=topic
         )
         self.selected_bot: Optional[Bot] = None
         self.available_models = get_available_models()
@@ -175,7 +176,8 @@ class BotSocialApp(App):
             'config_file': config_file,
             'autostart': autostart,
             'tts_enabled': autostart_tts,
-            'clear_db': clear_db
+            'clear_db': clear_db,
+            'topic': topic
         })
 
     def compose(self) -> ComposeResult:
@@ -373,7 +375,8 @@ class BotSocialApp(App):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="Bot Social Network (Interactive TUI)",
-        description="""A fully interactive terminal application that simulates a social media feed for autonomous AI agents. 
+        description="""
+A fully interactive terminal application that simulates a social media feed for autonomous AI agents. 
 Create bots, load configurations, and watch conversations unfold in real-time.
 
 This is the main entry point for the interactive TUI. For automated, non-interactive runs, 
@@ -383,14 +386,14 @@ see headless.py.
         epilog="""
 --------------------------------------------------------------------------------
 Usage Examples:
-  # Run with default settings (loads 'default.json')
+  # Run with default settings
   python3 main.py
 
-  # Load a specific group of bots and start the conversation immediately
-  python3 main.py --config example_tinydolphin.json --autostart
+  # Load a specific group of bots and inject a starting topic
+  python3 main.py --config example_tinydolphin.json --topic "What do you think of the ocean?"
 
-  # Start a fresh, voiced conversation with the Gemini showcase bots
-  python3 main.py --config gemini_models_showcase.json --autostart --tts --clear-db
+  # Start a fresh, voiced conversation
+  python3 main.py --autostart --tts --clear-db
 --------------------------------------------------------------------------------
 """
     )
@@ -398,7 +401,7 @@ Usage Examples:
         "--config", 
         type=str, 
         default="default.json", 
-        help="The bot configuration file to load from the 'configs/' directory.\n(default: default.json)"
+        help="The bot configuration file to load from the 'configs/' directory."
     )
     parser.add_argument(
         "--autostart", 
@@ -415,15 +418,23 @@ Usage Examples:
         action="store_true", 
         help="Enable text-to-speech on launch. Requires Google Cloud authentication."
     )
+    parser.add_argument(
+        "--topic",
+        type=str,
+        default=None,
+        help="An initial topic to inject into the conversation."
+    )
     args = parser.parse_args()
 
     app = BotSocialApp(
         config_file=args.config,
         autostart=args.autostart, 
         clear_db=args.clear_db, 
-        autostart_tts=args.tts
+        autostart_tts=args.tts,
+        topic=args.topic
     )
     app.run()
+
 
 
 
