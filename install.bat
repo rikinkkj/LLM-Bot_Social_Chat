@@ -2,31 +2,44 @@
 setlocal enabledelayedexpansion
 
 :: Installer script for bot_social_network on Windows
-:: Supports a non-interactive test mode with the --test flag
+:: - Checks for Python
+:: - Guides user for manual installation if needed
+:: - Sets up the application
 
-:: --- Configuration ---
-set "INSTALL_DIR=%cd%"
-set "ENV_TYPE=venv"
-set "BIN_DIR="
+:main
+    call :print_header "Bot Social Network Installer for Windows"
+    call :check_python
+    call :run_setup
+    goto :eof
 
-:: --- Main Execution ---
-if /i "%1" == "--test" (
-    echo INFO: Running in non-interactive test mode.
-    set "INSTALL_DIR=%TEMP%\bot_social_network_install\project"
-    set "BIN_DIR=%TEMP%\bot_social_network_bin"
-    set "ENV_TYPE=venv"
+:check_python
+    call :print_header "Checking for Python"
+    where python >nul 2>nul
+    if %errorlevel% == 0 (
+        echo [V] Python is installed.
+    ) else (
+        echo [!] ERROR: Python is not found in your PATH.
+        echo.
+        echo Please install Python 3.9+ from the official website:
+        echo https://www.python.org/downloads/
+        echo.
+        echo IMPORTANT: During installation, make sure to check the box that says
+        echo "'Add Python to PATH'".
+        echo.
+        pause
+        start https://www.python.org/downloads/
+        exit /b 1
+    )
+    goto :eof
+
+:run_setup
+    call :print_header "Application Setup"
     
-    :: Clean up previous test runs
-    if exist "%TEMP%\bot_social_network_install" rmdir /s /q "%TEMP%\bot_social_network_install"
-    if exist "%TEMP%\bot_social_network_bin" rmdir /s /q "%TEMP%\bot_social_network_bin"
-    
-    mkdir "%INSTALL_DIR%"
-    mkdir "%BIN_DIR%"
-) else (
-    :: --- Interactive Prompts ---
+    set "INSTALL_DIR=%cd%"
     set /p "USER_INSTALL_DIR=Enter installation directory [%cd%]: "
     if defined USER_INSTALL_DIR set "INSTALL_DIR=%USER_INSTALL_DIR%"
 
+    echo.
     echo Select Python environment type:
     echo   1. Python venv (recommended)
     echo   2. Use base Python environment (not recommended)
@@ -37,83 +50,41 @@ if /i "%1" == "--test" (
         set "ENV_TYPE=venv"
     )
 
-    :: For Windows, we'll just offer to create a launcher in a common location
-    :: and let the user add it to their PATH if they wish.
-    set "DEFAULT_BIN_DIR=%USERPROFILE%\Scripts"
-    echo A launcher script can be created for easy access.
-    set /p "CREATE_LAUNCHER=Create a launcher in %DEFAULT_BIN_DIR%? [y/N]: "
-    if /i "%CREATE_LAUNCHER%" == "y" (
-        set "BIN_DIR=%DEFAULT_BIN_DIR%"
-        if not exist "%BIN_DIR%" mkdir "%BIN_DIR%"
-        echo NOTE: You may need to add %BIN_DIR% to your system's PATH to run the app from anywhere.
+    set "VENV_DIR=%INSTALL_DIR%\venv"
+    
+    if not "%INSTALL_DIR%" == "%cd%" (
+        echo INFO: Copying project files to %INSTALL_DIR%...
+        xcopy "%cd%" "%INSTALL_DIR%" /e /i /y /exclude:.gitexclude
+        echo .git\ > .gitexclude
+        echo *.tmp >> .gitexclude
+        echo tests\ >> .gitexclude
+        echo logs\ >> .gitexclude
     )
-)
 
-:: --- Ollama Check ---
-echo ---
-echo INFO: Checking for Ollama installation...
-where ollama >nul 2>nul
-if %errorlevel% == 0 (
-    echo [V] Ollama is installed. You can use local models.
-) else (
-    echo [!] Ollama not found.
-    echo    To use local AI models, please install Ollama from https://ollama.com
-)
-echo ---
+    cd /d "%INSTALL_DIR%"
 
-set "VENV_DIR=%INSTALL_DIR%\venv"
-set "PROJECT_ROOT=%cd%"
-
-:: --- Copy Project Files ---
-if not "%INSTALL_DIR%" == "%PROJECT_ROOT%" (
-    echo INFO: Copying project files to %INSTALL_DIR%...
-    xcopy "%PROJECT_ROOT%" "%INSTALL_DIR%" /e /i /y /exclude:.gitexclude
-    echo .git\ > .gitexclude
-    echo *.tmp >> .gitexclude
-    echo tests\ >> .gitexclude
-)
-
-cd /d "%INSTALL_DIR%"
-
-:: --- Environment Setup ---
-if "%ENV_TYPE%" == "venv" (
-    echo INFO: Creating Python venv environment...
-    python -m venv "%VENV_DIR%"
-    call "%VENV_DIR%\Scripts\activate.bat"
-) else (
-    echo INFO: Using base Python environment.
-)
-
-:: --- Dependency Installation ---
-echo INFO: Installing dependencies from requirements.txt...
-pip install -r requirements.txt
-
-:: --- Create Launcher ---
-if defined BIN_DIR (
-    echo INFO: Creating launcher...
-    (
-        echo @echo off
-        echo call "%INSTALL_DIR%\venv\Scripts\activate.bat"
-        echo python "%INSTALL_DIR%\main.py" %*
-    ) > "%BIN_DIR%\bot-social-network.bat"
-)
-
-:: --- Verification ---
-if defined BIN_DIR (
-    echo INFO: Verifying installation...
-    if exist "%BIN_DIR%\bot-social-network.bat" (
-        echo SUCCESS: Launcher created at %BIN_DIR%\bot-social-network.bat
-    ) else (
-        echo ERROR: Launcher creation failed.
-        exit /b 1
+    if "%ENV_TYPE%" == "venv" (
+        echo INFO: Creating Python venv environment...
+        python -m venv "%VENV_DIR%"
+        call "%VENV_DIR%\Scripts\activate.bat"
     )
-)
 
-echo INFO: Installation complete.
-if defined BIN_DIR (
-    echo You can now run the application by typing: bot-social-network
-) else (
-    echo To run the application, navigate to the installation directory (%INSTALL_DIR%) and run: python main.py
-)
+    echo INFO: Installing Python packages from requirements.txt...
+    pip install -r requirements.txt
 
-endlocal
+    call :print_header "Installation Complete"
+    echo.
+    echo To run the application, navigate to your installation directory:
+    echo cd /d "%INSTALL_DIR%"
+    echo.
+    echo Then, run the main script:
+    echo python main.py
+    echo.
+    echo Enjoy the simulation!
+    goto :eof
+
+:print_header
+    echo =================================================
+    echo  %~1
+    echo =================================================
+    goto :eof

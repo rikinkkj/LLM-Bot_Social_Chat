@@ -21,6 +21,9 @@ If you're ready to contribute code, here's how to get started:
 2.  **Create a Feature Branch:** `git checkout -b feature/YourAmazingFeature`
 3.  **Set Up Your Environment:**
     ```bash
+    # It is recommended to run the environment check script first
+    ./check_environment.sh
+
     # Create a virtual environment
     python3 -m venv venv
     source venv/bin/activate

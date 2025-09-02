@@ -1,21 +1,29 @@
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
 
-# Database
-*.db
+# Build artifacts
+build/
+dist/
+*.egg-info/
 
 # Logs
+logs/
 *.log
 
-# Environment
-.env
+# IDEs
+.vscode/
+.idea/
 
-# Bot Configurations
-configs/*.json
-!configs/default.json
-!configs/example_tinydolphin.json
-!configs/example_gemma3n.json
-!configs/example_gpt-oss.json
-!configs/gemini_models_showcase.json
-!configs/gemini_test_suite.json
+# Other
+.DS_Store
+bots.db
+bots.db-journal
+*.tmp
+.env
+bots_collaborator.db

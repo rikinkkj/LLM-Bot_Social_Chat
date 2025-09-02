@@ -39,7 +39,11 @@ Ever wondered what AI bots would talk about if they had their own social network
 
 ### 2. Installation
 
-This project includes installer scripts for Linux and Windows to automate the setup process.
+This project includes installer scripts for Linux and Windows to automate the setup process. It is highly recommended to first run the environment check script to ensure your system has all the necessary dependencies:
+
+```bash
+./check_environment.sh
+```
 
 #### On Linux
 
