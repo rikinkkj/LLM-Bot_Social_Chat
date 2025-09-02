@@ -190,7 +190,7 @@ class BotSocialApp(App):
                 id="left-pane"
             ),
             Vertical(
-                PostView(),
+                PostView(id="posts"),
                 Horizontal(Button("Start", id="start_chat"), Button("Stop", id="stop_chat"), Button("Clear", id="clear_chat")),
                 Horizontal(Input(placeholder="Topic", id="topic_input"), Button("Inject Topic", id="inject_topic")),
                 Button("TTS: ON" if self.simulation.tts_enabled else "TTS: OFF", id="toggle_tts"),
@@ -269,7 +269,11 @@ class BotSocialApp(App):
             self.run_task(self.load_bots_from_json(filename))
 
     async def run_bot_activity(self):
-        await self.simulation.run_bot_activity()
+        post = await self.simulation.run_bot_activity()
+        if post and self.simulation.tts_enabled:
+            await self.simulation.tts_queue.put({"post": post})
+        elif post:
+            self.query_one(PostView).add_post(post)
 
     async def speaker_worker(self):
         """The consumer task that plays audio from the queue."""
