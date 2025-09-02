@@ -5,6 +5,7 @@ import logging
 import asyncio
 import subprocess
 import os
+import tempfile
 from typing import Optional, List, Tuple
 
 from textual.app import App, ComposeResult
@@ -12,61 +13,13 @@ from textual.screen import ModalScreen
 from textual.widgets import Header, Footer, ListView, ListItem, Label, Input, Button, Static, TextArea, Select
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.binding import Binding
-
-from database import Bot, Post, Memory, session, close_database_connection, clear_posts_table
-import ai_client
-import voice_manager
 import logging_config
+
+from database import Bot, Post, Memory, session, close_database_connection, clear_posts_table, db_create_bot, db_edit_bot, db_delete_bot, db_clear_posts
+from simulation import Simulation, _parse_memory_string, get_available_models
 
 # --- Initialize Logging ---
 log_filename = logging_config.setup_logging()
-
-# --- Helper Functions ---
-
-def _parse_memory_string(memory_string: Optional[str]) -> Optional[Tuple[str, str]]:
-    """Parses a 'key: value' string into a tuple, handling errors."""
-    if not memory_string or memory_string.lower().strip() == "none" or ":" not in memory_string:
-        return None
-    try:
-        key, value = memory_string.split(":", 1)
-        return key.strip(), value.strip()
-    except ValueError:
-        return None
-
-# --- Model Loading ---
-
-def get_available_models() -> List[Tuple[str, str]]:
-    """Gets a list of available models from Gemini and Ollama."""
-    
-    gemini_models = [
-        ("Gemini 1.5 Flash", "gemini-1.5-flash"),
-        ("Gemini 1.5 Pro", "gemini-1.5-pro"),
-        ("Gemini 2.5 Flash", "gemini-2.5-flash"),
-        ("Gemini 2.5 Pro", "gemini-2.5-pro"),
-    ]
-
-    ollama_models = []
-    try:
-        result = subprocess.run(["ollama", "list"], capture_output=True, text=True, check=True)
-        lines = result.stdout.strip().split('\n')
-        if len(lines) > 1:
-            for line in lines[1:]:
-                parts = line.split()
-                if parts:
-                    model_name = parts[0].split(':')[0]
-                    ollama_models.append((model_name, model_name))
-    except (FileNotFoundError, subprocess.CalledProcessError) as e:
-        logging.warning(f"Could not list Ollama models: {e}")
-
-    return gemini_models + ollama_models
-
-# --- Logging Setup ---
-logging.basicConfig(
-    level="DEBUG",
-    filename="bots.log",
-    filemode="w",
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
 
 # --- Screens ---
 
@@ -209,21 +162,19 @@ class BotSocialApp(App):
 
     def __init__(self, config_file: str = "default.json", autostart: bool = False, clear_db: bool = False, autostart_tts: bool = False):
         super().__init__()
-        self.config_file = config_file
-        self.autostart = autostart
-        self.tts_enabled = autostart_tts
-        self.tts_queue = asyncio.Queue(maxsize=1)
-        if clear_db:
-            clear_posts_table()
-        self.background_tasks = set()
+        self.simulation = Simulation(
+            config_file=config_file,
+            autostart=autostart,
+            tts_enabled=autostart_tts,
+            clear_db=clear_db
+        )
         self.selected_bot: Optional[Bot] = None
         self.available_models = get_available_models()
-        self.bot_names: List[str] = []
         logging.info("Application started.", extra={
             'event': 'system.start',
-            'config_file': self.config_file,
-            'autostart': self.autostart,
-            'tts_enabled': self.tts_enabled,
+            'config_file': config_file,
+            'autostart': autostart,
+            'tts_enabled': autostart_tts,
             'clear_db': clear_db
         })
 
@@ -241,26 +192,19 @@ class BotSocialApp(App):
                 PostView(),
                 Horizontal(Button("Start", id="start_chat"), Button("Stop", id="stop_chat"), Button("Clear", id="clear_chat")),
                 Horizontal(Input(placeholder="Topic", id="topic_input"), Button("Inject Topic", id="inject_topic")),
-                Button("TTS: ON" if self.tts_enabled else "TTS: OFF", id="toggle_tts"),
+                Button("TTS: ON" if self.simulation.tts_enabled else "TTS: OFF", id="toggle_tts"),
                 id="right-pane"
             )
         )
         yield Footer()
 
     def on_mount(self) -> None:
-        self.run_task(self.initialize_voices())
-        self.run_task(self.load_bots_from_json(self.config_file))
+        self.run_task(self.simulation.initialize())
         self.run_task(self.speaker_worker())
-        self.bot_timer = self.set_interval(15, self.run_bot_activity, pause=not self.autostart)
-
-    async def initialize_voices(self):
-        """Initializes the voice cache."""
-        await asyncio.to_thread(voice_manager.get_voices)
+        self.bot_timer = self.set_interval(15, self.run_bot_activity, pause=not self.simulation.autostart)
 
     def run_task(self, coro):
-        task = asyncio.create_task(coro)
-        self.background_tasks.add(task)
-        task.add_done_callback(self.background_tasks.discard)
+        self.simulation.run_task(coro)
 
     # --- Event Handlers ---
 
@@ -305,8 +249,8 @@ class BotSocialApp(App):
                 self.run_task(self.action_inject_topic(topic_input.value))
                 topic_input.value = ""
         elif event.button.id == "toggle_tts":
-            self.tts_enabled = not self.tts_enabled
-            event.button.label = f"TTS: {'ON' if self.tts_enabled else 'OFF'}"
+            self.simulation.tts_enabled = not self.simulation.tts_enabled
+            event.button.label = f"TTS: {'ON' if self.simulation.tts_enabled else 'OFF'}"
 
     # --- Action & Callback Methods ---
 
@@ -324,118 +268,56 @@ class BotSocialApp(App):
             self.run_task(self.load_bots_from_json(filename))
 
     async def run_bot_activity(self):
-        bots = await asyncio.to_thread(session.query(Bot).all)
-        if not bots:
-            return
-
-        bot_to_post = random.choice(bots)
-        other_bot_names = [b.name for b in bots if b.name != bot_to_post.name]
-        
-        recent_posts = await asyncio.to_thread(
-            session.query(Post).order_by(Post.id.desc()).limit(50).all
-        )
-        
-        memories = await asyncio.to_thread(
-            session.query(Memory).filter_by(bot_id=bot_to_post.id).all
-        )
-
-        post_content = ""
-        prompt = ""
-        try:
-            if bot_to_post.model.startswith("gemini"):
-                post_content, prompt = await ai_client.generate_post_gemini(bot_to_post, other_bot_names, recent_posts, memories)
-            else:
-                post_content, prompt = await ai_client.generate_post_ollama(bot_to_post, other_bot_names, recent_posts, memories)
-        except Exception as e:
-            post_content = f"[SYSTEM Error: {e}]"
-            logging.error("Error generating post", extra={'event': 'post.generation.fail', 'bot_name': bot_to_post.name, 'error': str(e)})
-
-        sender_name = "SYSTEM" if post_content.startswith(("[Error", "[SYSTEM")) else bot_to_post.name
-        new_post = await asyncio.to_thread(self.create_post, post_content, sender_name, bot_to_post)
-
-        logging.info("Bot post generated", extra={
-            'event': 'post.generated',
-            'bot_name': bot_to_post.name,
-            'bot_model': bot_to_post.model,
-            'post_content': post_content,
-            'prompt': prompt
-        })
-
-        if self.tts_enabled and not post_content.startswith("[SYSTEM"):
-            voice_name = voice_manager.select_voice(bot_to_post.name)
-            if voice_name:
-                audio_data = await voice_manager.generate_voice_data(post_content, voice_name)
-                if audio_data:
-                    await self.tts_queue.put({"audio": audio_data, "post": new_post})
-        else:
-            self.query_one(PostView).add_post(new_post)
-        
-        # After posting, try to form a new memory
-        self.run_task(self.form_new_memory(bot_to_post))
+        await self.simulation.run_bot_activity()
 
     async def speaker_worker(self):
         """The consumer task that plays audio from the queue."""
         while True:
-            data = await self.tts_queue.get()
-            post = data["post"]
-            audio = data["audio"]
-            
-            self.query_one(PostView).add_post(post)
-            await asyncio.to_thread(voice_manager.play_audio_data, audio)
-            
-            # Wait for the audio to finish playing without blocking
-            while voice_manager.pygame.mixer.get_init() and voice_manager.pygame.mixer.music.get_busy():
-                await asyncio.sleep(0.1)
+            try:
+                data = await self.simulation.tts_queue.get()
+                post = data["post"]
+                
+                self.query_one(PostView).add_post(post)
 
-            self.tts_queue.task_done()
-
-    async def form_new_memory(self, bot: Bot):
-        """Asks the AI to generate a new memory and saves it to the database."""
-        recent_posts = await asyncio.to_thread(
-            session.query(Post).order_by(Post.id.desc()).limit(5).all
-        )
-        
-        new_memory_str = await ai_client.generate_new_memory(bot, recent_posts)
-        
-        parsed_memory = _parse_memory_string(new_memory_str)
-        if parsed_memory:
-            key, value = parsed_memory
-            new_memory = Memory(key=key, value=value, bot=bot)
-            await asyncio.to_thread(self.db_add_memory, new_memory)
-            logging.info(f"New memory for {bot.name}", extra={
-                'event': 'memory.form.success',
-                'bot_name': bot.name,
-                'memory_key': key,
-                'memory_value': value
-            })
-        else:
-            logging.info(f"No new memory formed for {bot.name}.", extra={
-                'event': 'memory.form.fail',
-                'bot_name': bot.name,
-                'llm_response': new_memory_str
-            })
+                if self.simulation.tts_enabled and not post.sender == "SYSTEM":
+                    voice_name = voice_manager.select_voice(post.sender)
+                    if voice_name:
+                        # In TUI mode, we save audio to a temporary file for playback
+                        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_audio_file:
+                            output_path = temp_audio_file.name
+                        
+                        success = await voice_manager.generate_voice_file(post.content, voice_name, output_path)
+                        if success:
+                            await asyncio.to_thread(voice_manager.play_audio_file, output_path)
+                        
+                        if os.path.exists(output_path):
+                            os.remove(output_path)
+                
+                self.simulation.tts_queue.task_done()
+            except asyncio.CancelledError:
+                break
 
     # --- Core Actions ---
 
     async def action_create_bot(self, bot_data: dict):
-        await asyncio.to_thread(self.db_create_bot, **bot_data)
+        await asyncio.to_thread(db_create_bot, **bot_data)
         await self.query_one(BotManager).refresh_bots()
 
     async def action_edit_bot(self, bot_data: dict):
-        await asyncio.to_thread(self.db_edit_bot, self.selected_bot, **bot_data)
+        await asyncio.to_thread(db_edit_bot, self.selected_bot, **bot_data)
         await self.query_one(BotManager).refresh_bots()
 
     async def action_delete_bot(self):
-        await asyncio.to_thread(self.db_delete_bot, self.selected_bot)
+        await asyncio.to_thread(db_delete_bot, self.selected_bot)
         self.selected_bot = None
         await self.query_one(BotManager).refresh_bots()
 
     async def action_clear_posts(self):
-        await asyncio.to_thread(self.db_clear_posts)
+        await asyncio.to_thread(db_clear_posts)
         await self.query_one(PostView).refresh_posts()
 
     async def action_inject_topic(self, topic: str):
-        new_post = await asyncio.to_thread(self.create_post, topic, "USER")
+        new_post = await self.simulation.inject_topic(topic)
         self.query_one(PostView).add_post(new_post)
 
     # --- Config File Methods ---
@@ -447,37 +329,12 @@ class BotSocialApp(App):
         return [f for f in os.listdir(config_dir) if f.endswith(".json")]
 
     async def load_bots_from_json(self, filename: str):
-        def _load():
-            filepath = os.path.join("configs", filename)
-            try:
-                with open(filepath, "r") as f:
-                    bots_data = json.load(f)
-                session.query(Post).delete()
-                session.query(Memory).delete()
-                session.query(Bot).delete()
-                for bot_data in bots_data:
-                    memories = bot_data.pop("memories", [])
-                    bot = Bot(**bot_data)
-                    session.add(bot)
-                    for memory_data in memories:
-                        memory = Memory(key=memory_data["key"], value=memory_data["value"], bot=bot)
-                        session.add(memory)
-                session.commit()
-                return None
-            except (FileNotFoundError, json.JSONDecodeError):
-                return "Error"
-        
-        error = await asyncio.to_thread(_load)
-        if error:
-            logging.error(f"Failed to load config file: {filename}", extra={'event': 'config.load.fail', 'config_filename': filename})
-            error_post = await asyncio.to_thread(self.create_post, f"Error loading {filename}.", "SYSTEM")
-            self.query_one(PostView).add_post(error_post)
-        else:
-            logging.info(f"Successfully loaded config file: {filename}", extra={'event': 'config.load.success', 'config_filename': filename})
+        await self.simulation.load_bots_from_json(filename)
         await self.query_one(BotManager).refresh_bots()
         await self.query_one(PostView).refresh_posts()
 
     async def save_bots_to_json(self, filename: str):
+        # This can remain in the App as it's a UI-specific action
         def _save():
             bots = session.query(Bot).all()
             bots_data = []
@@ -493,37 +350,6 @@ class BotSocialApp(App):
                 json.dump(bots_data, f, indent=4)
         await asyncio.to_thread(_save)
 
-    # --- Database Helper Methods ---
-
-    def db_add_memory(self, memory: Memory):
-        session.add(memory)
-        session.commit()
-
-    def create_post(self, content, sender, bot=None):
-        new_post = Post(content=content, sender=sender, bot=bot)
-        session.add(new_post)
-        session.commit()
-        return new_post
-        
-    def db_create_bot(self, name, persona, model):
-        new_bot = Bot(name=name, persona=persona, model=model)
-        session.add(new_bot)
-        session.commit()
-
-    def db_edit_bot(self, bot, name, persona, model):
-        bot.name = name
-        bot.persona = persona
-        bot.model = model
-        session.commit()
-
-    def db_delete_bot(self, bot):
-        session.delete(bot)
-        session.commit()
-
-    def db_clear_posts(self):
-        session.query(Post).delete()
-        session.commit()
-
     async def action_quit(self) -> None:
         self.log("Stopping bot timer...")
         self.bot_timer.stop()
@@ -531,11 +357,11 @@ class BotSocialApp(App):
         self.log("Stopping any playing audio...")
         voice_manager.stop_audio()
 
-        self.log(f"Cancelling {len(self.background_tasks)} background tasks...")
-        for task in self.background_tasks:
+        self.log(f"Cancelling {len(self.simulation.background_tasks)} background tasks...")
+        for task in self.simulation.background_tasks:
             task.cancel()
         
-        await asyncio.gather(*self.background_tasks, return_exceptions=True)
+        await asyncio.gather(*self.simulation.background_tasks, return_exceptions=True)
         
         self.log("Closing database connection...")
         await asyncio.to_thread(close_database_connection)
@@ -546,14 +372,12 @@ class BotSocialApp(App):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        prog="Bot Social Network",
-        description="""
-A fully interactive terminal application that simulates a social media feed for autonomous AI agents. 
-Create bots with unique personas, drop them into the chat, and watch as they develop conversations, 
-share ideas, and interact with each other in real-time.
+        prog="Bot Social Network (Interactive TUI)",
+        description="""A fully interactive terminal application that simulates a social media feed for autonomous AI agents. 
+Create bots, load configurations, and watch conversations unfold in real-time.
 
-Each simulation run is captured in a unique, timestamped JSONL file in the 'logs/' directory, 
-making this tool suitable for research and analysis of AI agent interactions.
+This is the main entry point for the interactive TUI. For automated, non-interactive runs, 
+see headless.py.
 """,
         formatter_class=argparse.RawTextHelpFormatter,
         epilog="""
@@ -567,14 +391,7 @@ Usage Examples:
 
   # Start a fresh, voiced conversation with the Gemini showcase bots
   python3 main.py --config gemini_models_showcase.json --autostart --tts --clear-db
-
 --------------------------------------------------------------------------------
-Requirements:
-  - Python 3.9+
-  - An API key for the Google Gemini API (set via a .env file).
-  - For TTS: A Google Cloud project with the Text-to-Speech API enabled and
-    application-default authentication (e.g., run 'gcloud auth application-default login').
-  - For local models: Ollama installed and running (https://ollama.com).
 """
     )
     parser.add_argument(
@@ -607,4 +424,6 @@ Requirements:
         autostart_tts=args.tts
     )
     app.run()
+
+
 

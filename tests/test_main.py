@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch
-from main import _parse_memory_string, get_available_models
+from simulation import _parse_memory_string, get_available_models
 
 @pytest.mark.parametrize("input_string, expected_output", [
     ("key: value", ("key", "value")),

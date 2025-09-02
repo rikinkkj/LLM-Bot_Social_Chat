@@ -43,3 +43,28 @@ def close_database_connection():
     """Closes the session and disposes of the engine."""
     session.close()
     engine.dispose()
+
+# --- Database Helper Functions ---
+
+def db_add_memory(memory: Memory):
+    session.add(memory)
+    session.commit()
+
+def db_create_bot(name, persona, model):
+    new_bot = Bot(name=name, persona=persona, model=model)
+    session.add(new_bot)
+    session.commit()
+
+def db_edit_bot(bot, name, persona, model):
+    bot.name = name
+    bot.persona = persona
+    bot.model = model
+    session.commit()
+
+def db_delete_bot(bot):
+    session.delete(bot)
+    session.commit()
+
+def db_clear_posts():
+    session.query(Post).delete()
+    session.commit()

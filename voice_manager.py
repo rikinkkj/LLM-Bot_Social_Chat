@@ -67,8 +67,9 @@ def select_voice(bot_name: str) -> Optional[str]:
     voice_index = hash(bot_name) % len(gender_voices)
     return gender_voices[voice_index]
 
-async def generate_voice_data(text: str, voice_name: str) -> Optional[bytes]:
-    """Generates speech from text and returns the audio content as bytes."""
+async def generate_voice_file(text: str, voice_name: str, output_path: str) -> bool:
+    """Generates speech from text and saves it to a file."""
+    logging.info(f"Requesting TTS for text: '{text[:50]}...'", extra={'event': 'tts.generate.start', 'voice_name': voice_name})
     try:
         client = texttospeech.TextToSpeechAsyncClient()
         synthesis_input = texttospeech.SynthesisInput(text=text)
@@ -78,29 +79,39 @@ async def generate_voice_data(text: str, voice_name: str) -> Optional[bytes]:
         response = await client.synthesize_speech(
             input=synthesis_input, voice=voice, audio_config=audio_config
         )
-        return response.audio_content
+        
+        with open(output_path, "wb") as out:
+            out.write(response.audio_content)
+        
+        logging.info(f"Successfully saved TTS audio to {output_path}", extra={'event': 'tts.generate.success'})
+        return True
 
     except exceptions.GoogleAPICallError as e:
-        logging.error(f"Error during speech synthesis: {e}")
+        logging.error(f"Error during speech synthesis: {e}", extra={'event': 'tts.generate.fail'})
     except Exception as e:
-        logging.error(f"An unexpected error occurred in voice generation: {e}")
-    return None
+        logging.error(f"An unexpected error occurred in voice generation: {e}", extra={'event': 'tts.generate.fail'})
+    return False
 
-def play_audio_data(audio_data: bytes):
-    """Plays audio data from bytes using pygame."""
+def play_audio_file(file_path: str):
+    """Plays an audio file using pygame."""
     try:
+        if not os.path.exists(file_path):
+            logging.error(f"Audio file not found for playback: {file_path}", extra={'event': 'tts.playback.fail'})
+            return
+
+        logging.info(f"Starting audio playback for {file_path}", extra={'event': 'tts.playback.start'})
         pygame.mixer.init()
-        # Use a temporary file in memory to play the audio
-        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as temp_audio_file:
-            temp_audio_file.write(audio_data)
-            temp_audio_file.flush() # Ensure all data is written
-            
-            pygame.mixer.music.load(temp_audio_file.name)
-            pygame.mixer.music.play()
-            # The waiting will be handled by the caller
-            
+        pygame.mixer.music.load(file_path)
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy():
+            pygame.time.Clock().tick(10)
+        logging.info("Audio playback finished.", extra={'event': 'tts.playback.finish'})
+
     except Exception as e:
-        logging.error(f"Error playing audio: {e}")
+        logging.error(f"Error playing audio: {e}", extra={'event': 'tts.playback.fail'})
+    finally:
+        if pygame.mixer.get_init():
+            pygame.mixer.quit()
 
 def stop_audio():
     """Stops any currently playing audio."""

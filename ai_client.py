@@ -116,7 +116,11 @@ def _build_prompt(bot: Bot, other_bot_names: List[str], recent_posts: List[Post]
         prompt_parts.append(f"\nYou are in a conversation with: {other_bots_str}. Be sure to engage with them directly by name.")
 
     if recent_posts:
-        history_lines = [f"- @{p.sender}: {p.content}" for p in reversed(recent_posts)]
+        history_lines = []
+        for p in reversed(recent_posts):
+            sender_name = p.sender or (p.bot.name if p.bot else "Unknown")
+            history_lines.append(f"- @{sender_name}: {p.content}")
+        
         chat_history = "\n".join(history_lines).splitlines()[-100:]
         chat_history_str = "\n".join(chat_history)
         

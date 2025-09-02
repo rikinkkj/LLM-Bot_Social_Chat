@@ -5,14 +5,17 @@ from pythonjsonlogger import jsonlogger
 
 def setup_logging():
     """
-    Sets up a unique, timestamped JSONL logger for each simulation run.
+    Sets up a unique, timestamped directory for each simulation run,
+    containing a JSONL log file and a directory for audio output.
     """
-    log_dir = "logs"
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-
+    base_log_dir = "logs"
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_filename = os.path.join(log_dir, f"sim_{timestamp}.jsonl")
+    run_dir = os.path.join(base_log_dir, f"sim_{timestamp}")
+    audio_dir = os.path.join(run_dir, "audio")
+    
+    os.makedirs(audio_dir, exist_ok=True)
+
+    log_filename = os.path.join(run_dir, "simulation.jsonl")
 
     # Get the root logger
     logger = logging.getLogger()
@@ -40,5 +43,5 @@ def setup_logging():
     console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
 
-    logging.info("Structured logging initialized.", extra={'event': 'system.init'})
-    return log_filename
+    logging.info("Structured logging initialized.", extra={'event': 'system.init', 'run_dir': run_dir})
+    return run_dir
